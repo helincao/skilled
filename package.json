@@ -1,0 +1,29 @@
+{
+  "name": "skilled",
+  "version": "0.1.0",
+  "description": "Reusable core skills and scripts for Skilled-based static sites",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/helincao/skilled.git"
+  },
+  "homepage": "https://github.com/helincao/skilled#readme",
+  "bugs": {
+    "url": "https://github.com/helincao/skilled/issues"
+  },
+  "license": "MIT",
+  "type": "module",
+  "files": [
+    "README.md",
+    "setup-skills.mjs",
+    "skills"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "skilled-build": "./skills/build/scripts/build.mjs",
+    "skilled-setup-skills": "./setup-skills.mjs",
+    "skilled-github-issues": "./skills/github-issues/scripts/github-issues.mjs",
+    "skilled-image-gen": "./skills/image-gen/scripts/image-gen/generate.mjs"
+  }
+}
