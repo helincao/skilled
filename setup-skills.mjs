@@ -4,8 +4,13 @@ import { existsSync, mkdirSync, readdirSync, lstatSync, readlinkSync, rmSync, sy
 import { dirname, join, relative, resolve } from "path";
 import { fileURLToPath } from "url";
 
+const AGENT_DIRS = Object.freeze({
+  claude: ".claude",
+  codex: ".codex",
+});
+
 function parseArgs(argv) {
-  const args = { projectRoot: process.cwd(), help: false };
+  const args = { projectRoot: process.cwd(), help: false, agentArgs: [] };
   for (let i = 0; i < argv.length; i++) {
     const token = argv[i];
     if (token === "--help" || token === "-h") {
@@ -22,11 +27,63 @@ function parseArgs(argv) {
       args.projectRoot = value;
       continue;
     }
+    if (token === "--agent" || token === "-a") {
+      const value = argv[++i];
+      if (!value || value.startsWith("-")) {
+        console.error("Error: --agent requires a value (claude, codex, or all)");
+        printUsage();
+        process.exit(1);
+      }
+      args.agentArgs.push(value);
+      continue;
+    }
     console.error(`Error: Unknown option "${token}"`);
     printUsage();
     process.exit(1);
   }
-  return args;
+  if (args.agentArgs.length === 0) {
+    const npmConfigAgent = process.env.npm_config_agent;
+    if (typeof npmConfigAgent === "string" && npmConfigAgent.trim()) {
+      args.agentArgs.push(npmConfigAgent);
+    }
+  }
+  return { ...args, agents: normalizeAgents(args.agentArgs) };
+}
+
+function normalizeAgents(agentArgs) {
+  if (agentArgs.length === 0) {
+    return Object.keys(AGENT_DIRS);
+  }
+
+  const selected = new Set();
+  for (const rawArg of agentArgs) {
+    const parts = rawArg.split(",");
+    for (const part of parts) {
+      const value = part.trim().toLowerCase();
+      if (!value) {
+        continue;
+      }
+      if (value === "all" || value === "both") {
+        selected.add("claude");
+        selected.add("codex");
+        continue;
+      }
+      if (!(value in AGENT_DIRS)) {
+        console.error(`Error: Unsupported agent "${value}". Use claude, codex, or all`);
+        printUsage();
+        process.exit(1);
+      }
+      selected.add(value);
+    }
+  }
+
+  if (selected.size === 0) {
+    console.error("Error: --agent requires at least one non-empty value");
+    printUsage();
+    process.exit(1);
+  }
+
+  return [...selected];
 }
 
 function printUsage() {
@@ -34,11 +91,16 @@ function printUsage() {
 skilled-setup-skills
 
 Usage:
-  skilled-setup-skills [--project-root <path>]
+  skilled-setup-skills [--project-root <path>] [--agent <claude|codex|all>]
 
 Options:
   --project-root <path>    Project root where agent skills directories should be updated
+  --agent, -a <value>      Target agent(s): claude, codex, or all (repeat or comma-separate)
   -h, --help               Show this help
+
+Examples:
+  npm run setup:skills --agent=claude
+  skilled-setup-skills --project-root . --agent codex
 `);
 }
 
@@ -106,7 +168,7 @@ function syncAgentSkills({ projectRoot, coreSkillsDir, agentDirName }) {
 }
 
 function main() {
-  const { projectRoot, help } = parseArgs(process.argv.slice(2));
+  const { projectRoot, help, agents } = parseArgs(process.argv.slice(2));
   if (help) {
     printUsage();
     process.exit(0);
@@ -121,7 +183,7 @@ function main() {
   }
 
   const resolvedProjectRoot = resolve(projectRoot);
-  const agentDirNames = [".claude", ".codex"];
+  const agentDirNames = agents.map((agent) => AGENT_DIRS[agent]);
 
   for (const agentDirName of agentDirNames) {
     const { agentSkillsDir, stats } = syncAgentSkills({

@@ -41,6 +41,10 @@ cd my-site
 npm install
 npm run setup:skills
 
+# Optional: target one agent
+npm run setup:skills --agent=claude
+npm run setup:skills --agent=codex
+
 # In your agent:
 /start-project
 ```
@@ -52,7 +56,6 @@ This package currently ships these skills:
 3. `github-issues`
 4. `image-gen`
 
-Without an agent: use legacy bootstrap `npm run start:project -- --name "My Site"` and then run `npm run check:site`.
 
 ## Project Structure
 
@@ -157,7 +160,16 @@ Agents scan their native directory (`.claude/skills/`, `.codex/skills/`). Each e
 - **A symlink** to `skills/<name>` — core skill, updates via merge
 - **A real folder** — your custom skill, upstream never touches it
 
-Run `npm run setup:skills` (or `node setup-skills.mjs`) after pulling upstream updates to create symlinks for new core skills.
+Run `npm run setup:skills` (or `node setup-skills.mjs`) after pulling upstream updates to create symlinks for new core skills. By default it syncs both Claude and Codex directories.
+
+To sync only one agent, pass `--agent`:
+
+```bash
+npm run setup:skills --agent=claude
+npm run setup:skills --agent=codex
+# or direct CLI args:
+node setup-skills.mjs --project-root . --agent claude
+```
 
 ### Dependencies between skills
 
