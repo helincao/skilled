@@ -20,8 +20,21 @@
   "publishConfig": {
     "access": "public"
   },
+  "scripts": {
+    "start:project": "node skills/start-project/scripts/start-project.mjs --project-root .",
+    "lint:site": "node skills/start-project/scripts/lint-site.mjs --project-root .",
+    "build": "node skills/build/scripts/build.mjs --project-root .",
+    "validate:site": "node skills/start-project/scripts/validate-site.mjs --project-root .",
+    "check:site": "npm run lint:site && npm run build && npm run validate:site",
+    "setup:skills": "node setup-skills.mjs --project-root .",
+    "issues": "node skills/github-issues/scripts/github-issues.mjs",
+    "image": "node skills/image-gen/scripts/image-gen/generate.mjs"
+  },
   "bin": {
+    "skilled-start-project": "./skills/start-project/scripts/start-project.mjs",
+    "skilled-lint-site": "./skills/start-project/scripts/lint-site.mjs",
     "skilled-build": "./skills/build/scripts/build.mjs",
+    "skilled-validate-site": "./skills/start-project/scripts/validate-site.mjs",
     "skilled-setup-skills": "./setup-skills.mjs",
     "skilled-github-issues": "./skills/github-issues/scripts/github-issues.mjs",
     "skilled-image-gen": "./skills/image-gen/scripts/image-gen/generate.mjs"

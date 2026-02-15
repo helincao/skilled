@@ -6,11 +6,11 @@ A static site generator where AI agent skills replace the framework.
 
 You tell an AI agent what you want. The agent reads skills — folders with instructions, scripts, and references — and does the work. Standard HTML and CSS come out. No templating language, no framework API.
 
-- **Skills replace the framework.** Every capability (scaffolding, page creation, image generation, issue triage) is a skill folder with a `SKILL.md`, scripts, and reference materials.
+- **Skills replace the framework.** Capabilities like site building, image generation, and issue triage are delivered as skill folders with a `SKILL.md`, scripts, and reference materials.
 - **The agent is the interface.** Claude Code, Codex, and similar agents discover skills in their native directories (`.claude/skills/`, `.codex/skills/`). The agent reads `SKILL.md` and acts.
 - **Drop-in by design.** This project only uses skills + scripts: repo-contained, works immediately with minimal agent-specific setup. MCP is not prioritized because it still requires agent-specific tool registration and authentication setup.
 - **You own the output.** Plain HTML, CSS, and config files. No proprietary format, no runtime dependency.
-- **Core skills update cleanly.** `_core/` updates via `git merge` without touching your content.
+- **Core skills update cleanly.** `skills/` updates via `git merge` without touching your content.
 
 Frameworks give developers abstractions to code against. Skills give agents instructions to act on. The unit of reuse is a workflow, not a library.
 
@@ -21,7 +21,7 @@ Frameworks give developers abstractions to code against. Skills give agents inst
 | Static output, simple hosting | Yes | Yes |
 | No database required | Yes | Yes |
 | Natural language authoring | Yes | No |
-| AI-native workflow (scaffold, create, build) | Yes | No |
+| AI-native workflow (scaffold, build, image generation, issue triage) | Yes | No |
 | Framework/templating language to learn | No | Yes |
 | Content generated, not just templated | Yes | No |
 | Built-in image generation | Yes | No |
@@ -39,20 +39,20 @@ Frameworks give developers abstractions to code against. Skills give agents inst
 npx degit helincao/skilled my-site
 cd my-site
 npm install
+npm run setup:skills
 
-# In Claude Code:
+# In your agent:
 /start-project
 ```
 
-The agent asks what your site is about, then:
+This package currently ships these skills:
 
-1. Creates `site.config.json`
-2. Scaffolds `_partials/header.html` and `footer.html`
-3. Generates `src/index.html` — a real page, not a placeholder
-4. Sets up `src/css/input.css` with brand tokens
-5. Runs the build to produce `dist/`
+1. `start-project`
+2. `build`
+3. `github-issues`
+4. `image-gen`
 
-Without an agent: `npm run build` runs `skilled-build` from `skilled`.
+Without an agent: use legacy bootstrap `npm run start:project -- --name "My Site"` and then run `npm run check:site`.
 
 ## Project Structure
 
@@ -60,73 +60,65 @@ Without an agent: `npm run build` runs `skilled-build` from `skilled`.
 
 ```
 my-site/
-├── _core/                              # Upstream-managed (do not edit)
-│   ├── skills/
-│   │   ├── start-project/              # Scaffolds a new site
-│   │   │   ├── SKILL.md
-│   │   │   ├── scripts/
-│   │   │   └── references/
-│   │   ├── build/                      # Assembles src/ → dist/
-│   │   │   ├── SKILL.md
-│   │   │   └── scripts/
-│   │   │       └── build.mjs
-│   │   ├── create-page/                # Authors new pages
-│   │   │   ├── SKILL.md
-│   │   │   └── references/
-│   │   ├── github-issues/              # Triages GitHub issues
-│   │   │   ├── SKILL.md
-│   │   │   └── scripts/
-│   │   └── image-gen/                  # Generates images via AI
-│   │       ├── SKILL.md
-│   │       └── scripts/
-│   └── setup-skills.mjs                # Creates symlinks for agent discovery
+├── skills/
+│   ├── start-project/                  # Agent-first project creation + workflow checks
+│   ├── build/                          # Assembles src/ → dist/
+│   ├── github-issues/                  # Triages GitHub issues
+│   └── image-gen/                      # Generates images via AI
 │
-├── .claude/
-│   └── skills/                         # Symlinks to _core/skills/ + custom skills
-│       ├── start-project -> ../../_core/skills/start-project
-│       ├── build -> ../../_core/skills/build
-│       ├── create-page -> ../../_core/skills/create-page
-│       ├── github-issues -> ../../_core/skills/github-issues
-│       └── image-gen -> ../../_core/skills/image-gen
-│
-├── CLAUDE.md
+├── setup-skills.mjs                    # Creates symlinks for agent discovery
 ├── package.json
-├── .env-example
+├── .env.example
 └── .gitignore
 ```
 
-No `src/`, no `_partials/`, no `site.config.json` yet. `/start-project` creates those.
+No `src/`, no `_partials/`, no `site.config.json` yet. `/start-project` creates these directly (agent-first), with an optional legacy scaffold fallback.
+
+### After `npm run setup:skills`
+
+```
+my-site/
+├── skills/...                          # Unchanged
+├── .claude/skills/
+│   ├── start-project -> ../../skills/start-project
+│   ├── build -> ../../skills/build
+│   ├── github-issues -> ../../skills/github-issues
+│   └── image-gen -> ../../skills/image-gen
+├── .codex/skills/
+│   ├── start-project -> ../../skills/start-project
+│   ├── build -> ../../skills/build
+│   ├── github-issues -> ../../skills/github-issues
+│   └── image-gen -> ../../skills/image-gen
+├── package.json
+└── .env.example
+```
 
 ### After `/start-project`
 
 ```
 my-site/
-├── _core/skills/...                    # Unchanged
+├── skills/...                          # Unchanged
 ├── .claude/skills/...                  # Unchanged
+├── .codex/skills/...                   # Unchanged
 │
-├── site.config.json                    # Site identity and defaults
+├── site.config.json
 ├── _partials/
 │   ├── header.html
 │   └── footer.html
 │
 ├── src/
-│   ├── index.html                      # Landing page with meta block
+│   ├── index.html
 │   ├── css/
-│   │   ├── input.css                   # Brand tokens
-│   │   └── site.css                    # Compiled (generated by build)
+│   │   ├── input.css
+│   │   └── site.css
 │   ├── js/
 │   └── images/
 │
-├── content/                            # Markdown sources
-│
-├── dist/                               # Build output (deploy this)
-│
-├── CLAUDE.md
-├── package.json
-└── .env-example
+├── content/
+└── dist/                               # Created after running build
 ```
 
-**The rule:** `_core/` is upstream. Everything else is yours.
+**The rule:** `skills/` is upstream. Everything else is yours.
 
 ## Skills
 
@@ -162,43 +154,42 @@ Every skill needs a `SKILL.md`. This is the contract between the skill and the a
 
 Agents scan their native directory (`.claude/skills/`, `.codex/skills/`). Each entry is either:
 
-- **A symlink** to `_core/skills/<name>` — core skill, updates via merge
+- **A symlink** to `skills/<name>` — core skill, updates via merge
 - **A real folder** — your custom skill, upstream never touches it
 
-Run `npm run setup:skills` (or `node _core/setup-skills.mjs`) after pulling upstream updates to create symlinks for new core skills.
+Run `npm run setup:skills` (or `node setup-skills.mjs`) after pulling upstream updates to create symlinks for new core skills.
 
 ### Dependencies between skills
 
-Skills can depend on other skills. `create-page` produces a source file that needs `build` to appear in `dist/`. Dependencies are documented in each `SKILL.md`. The agent chains skills in the right order — no automatic resolution.
+Skills can depend on other skills. For example, `start-project` creates `src/` and `_partials/`, then runs quality gates (`lint:site`, `build`, `validate:site`). Dependencies are documented in each `SKILL.md`. The agent chains skills in the right order — no automatic resolution.
 
 ### Included skills
 
 | Skill | Invoke | What it does | Env vars |
 |---|---|---|---|
-| `start-project` | `/start-project` | Scaffolds full project structure from a description | — |
+| `start-project` | `/start-project` | Creates project files directly from a brief, optionally using an opinionated reference design, then runs lint/build/validate workflow | — |
 | `build` | `/build` | Compiles CSS, injects partials and SEO into `dist/`, generates sitemap and robots.txt | — |
-| `create-page` | `/create-page` | Authors a new HTML page following project conventions | — |
 | `github-issues` | `/github-issues` | Triages and addresses GitHub issues | `GITHUB_API_KEY`, `GITHUB_REPOSITORY` |
 | `image-gen` | `/image-gen` | Generates images via AI (Google Gemini) | `GEMINI_API_KEY` |
 
-Copy `.env-example` to `.env` and fill in the values for skills that need them.
+Copy `.env.example` to `.env` and fill in the values for skills that need them.
 
 ### Custom skills
 
-Create a folder in `.claude/skills/` with a `SKILL.md`. Follow the spec above. Custom skills are real folders, not symlinks — upstream updates never touch them.
+Create a folder in `.claude/skills/` or `.codex/skills/` with a `SKILL.md`. Follow the spec above. Custom skills are real folders, not symlinks — upstream updates never touch them.
 
 ## Security
 
 Skills are scripts that run on your machine with your user permissions. Same trust model as npm packages.
 
-- **Review before merging.** Check `git diff` on `_core/` before running new skills.
+- **Review before merging.** Check `git diff` on `skills/` before running new skills.
 - **API keys are shared.** All skills can read `.env`. Don't store secrets beyond what skills require.
 - **Scripts run unsandboxed.** A compromised skill has full user-level access.
 - **Custom skills are your responsibility.** Core skills are maintained upstream. Custom skills are on you.
 
 ## Upstream Updates
 
-`_core/` updates via `git merge`. You never edit `_core/`, so merges are clean.
+`skills/` updates via `git merge`. You never edit `skills/`, so merges are clean.
 
 ```bash
 # One-time: add remote
@@ -209,7 +200,7 @@ git fetch skilled
 git merge skilled/main
 
 # Review
-git diff HEAD~1 -- _core/
+git diff HEAD~1 -- skills/ setup-skills.mjs
 
 # Symlink new skills
 npm run setup:skills
@@ -217,10 +208,10 @@ npm run setup:skills
 
 ### Ejecting a skill
 
-To customize a core skill, copy it out of `_core/`:
+To customize a core skill, copy it out of `skills/`:
 
 ```bash
-cp -r _core/skills/build .claude/skills/build
+cp -r skills/build .claude/skills/build
 # The real folder replaces the symlink
 ```
 
@@ -230,27 +221,33 @@ That skill is now yours. Upstream changes won't affect it. Ejection is one-way �
 
 Point any static host at `dist/`. Build command is `npm run build` everywhere. Build generates `sitemap.xml` and `robots.txt` automatically.
 
+Recommended pre-deploy check:
+
+```bash
+npm run check:site
+```
+
 Works with Cloudflare Pages, Netlify, GitHub Pages, Vercel — anything that serves static files.
 
 ## Limitations
 
 - **No incremental builds.** Full `src/` copy every time. Fine for most sites.
 - **No content lifecycle.** No drafts, no scheduling. Files exist or they don't.
-- **No asset pipeline.** No image optimization, no responsive images, no minification beyond Tailwind.
+- **No asset pipeline.** No image optimization, no responsive images, no minification by default.
 - **No skill versioning.** No semver, no changelog. Review diffs before merging.
 - **Single-agent workflow.** No multi-agent coordination. Use git for conflicts.
 - **Agent portability varies.** Tested with Claude Code. Other agents may interpret skills differently.
 
 ## Contributing
 
-File issues on [GitHub](https://github.com/helincao/skilled). For code: fork, feature branch, keep `_core/skills/` generic, test with a fresh clone + `/start-project`, submit a PR.
+File issues on [GitHub](https://github.com/helincao/skilled). For code: fork, feature branch, keep `skills/` generic, test with a fresh clone + `/start-project` + `npm run check:site`, submit a PR.
 
 **Guidelines:**
 
-- Everything is a skill. New capabilities go in `_core/skills/<name>/`.
+- Everything is a skill. New capabilities go in `skills/<name>/`.
 - Skills are self-contained. `SKILL.md` alone should be enough.
 - Follow the spec. Required sections: title, when to use, inputs, steps, output.
-- Zero build dependencies. Node.js built-ins only. Tailwind is the sole project dependency.
+- Zero build dependencies. Node.js built-ins only.
 
 ### Backlog
 
@@ -258,16 +255,16 @@ Priority order.
 
 | # | Feature | Why |
 |---|---|---|
-| 1 | **Complete core skill set** | `build`, `github-issues`, and `image-gen` are in `_core/skills/`; add `start-project` and `create-page` for full parity with README examples. |
+| 1 | **Complete core skill set** | `start-project`, `build`, `github-issues`, and `image-gen` are in `skills/`; add `create-page` for full authoring flow. |
 | 2 | **Improve `setup-skills.mjs` lifecycle** | Add stale-link cleanup and richer reporting so upgrades stay deterministic in long-lived repos. |
 | 3 | **Build-time validation** | Check well-formed HTML, required meta fields, broken links, missing images before they reach `dist/`. |
 | 4 | **`SKILL.md` linter** | Validate skills against the spec — required sections present. Run in CI or standalone. |
 | 5 | **Incremental builds** | Track file hashes. Only process changed files. Matters past ~50 pages. |
-| 6 | **Changelog and release tags** | Semver tags and `CHANGELOG.md` in `_core/` so consumers know what changed. |
+| 6 | **Changelog and release tags** | Semver tags and `CHANGELOG.md` so consumers know what changed. |
 | 7 | **Draft support** | `draft: true` in the meta block. Build skips drafts from `dist/` and `sitemap.xml`. |
 | 8 | **Asset optimization** | Image compression, `srcset`, cache-busting hashes. New `optimize` skill or extend `build`. |
 | 9 | **Agent adapter system** | Detect `.claude/`, `.codex/`, `.cursor/`, etc. and create symlinks in each. |
-| 10 | **Skill test harness** | Fixtures (input + expected output) in `tests/` per skill. Run via `node _core/test-skills.mjs`. |
+| 10 | **Skill test harness** | Fixtures (input + expected output) in `tests/` per skill. Run via `node test-skills.mjs`. |
 
 ## License
 

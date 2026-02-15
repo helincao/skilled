@@ -37,7 +37,7 @@ Usage:
   skilled-setup-skills [--project-root <path>]
 
 Options:
-  --project-root <path>    Project root where .claude/skills should be updated
+  --project-root <path>    Project root where agent skills directories should be updated
   -h, --help               Show this help
 `);
 }
@@ -59,10 +59,10 @@ function isSameTarget(linkPath, expectedTarget) {
   }
 }
 
-function syncClaudeSkills({ projectRoot, coreSkillsDir }) {
-  const claudeDir = join(projectRoot, ".claude");
-  const claudeSkillsDir = join(claudeDir, "skills");
-  ensureDir(claudeSkillsDir);
+function syncAgentSkills({ projectRoot, coreSkillsDir, agentDirName }) {
+  const agentDir = join(projectRoot, agentDirName);
+  const agentSkillsDir = join(agentDir, "skills");
+  ensureDir(agentSkillsDir);
 
   const skillDirs = readdirSync(coreSkillsDir, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
@@ -73,7 +73,7 @@ function syncClaudeSkills({ projectRoot, coreSkillsDir }) {
 
   for (const skill of skillDirs) {
     const target = join(coreSkillsDir, skill);
-    const linkPath = join(claudeSkillsDir, skill);
+    const linkPath = join(agentSkillsDir, skill);
 
     if (!existsSync(linkPath)) {
       const relTarget = relative(dirname(linkPath), target);
@@ -102,7 +102,7 @@ function syncClaudeSkills({ projectRoot, coreSkillsDir }) {
     stats.skippedOther += 1;
   }
 
-  return { claudeSkillsDir, stats };
+  return { agentSkillsDir, stats };
 }
 
 function main() {
@@ -120,17 +120,23 @@ function main() {
     process.exit(1);
   }
 
-  const { claudeSkillsDir, stats } = syncClaudeSkills({
-    projectRoot: resolve(projectRoot),
-    coreSkillsDir,
-  });
+  const resolvedProjectRoot = resolve(projectRoot);
+  const agentDirNames = [".claude", ".codex"];
 
-  console.log(`Synced core skills into ${claudeSkillsDir}`);
-  console.log(`  Linked: ${stats.linked}`);
-  console.log(`  Updated: ${stats.updated}`);
-  console.log(`  Skipped ejected: ${stats.skippedEjected}`);
-  if (stats.skippedOther > 0) {
-    console.log(`  Skipped non-directory entries: ${stats.skippedOther}`);
+  for (const agentDirName of agentDirNames) {
+    const { agentSkillsDir, stats } = syncAgentSkills({
+      projectRoot: resolvedProjectRoot,
+      coreSkillsDir,
+      agentDirName,
+    });
+
+    console.log(`Synced core skills into ${agentSkillsDir}`);
+    console.log(`  Linked: ${stats.linked}`);
+    console.log(`  Updated: ${stats.updated}`);
+    console.log(`  Skipped ejected: ${stats.skippedEjected}`);
+    if (stats.skippedOther > 0) {
+      console.log(`  Skipped non-directory entries: ${stats.skippedOther}`);
+    }
   }
 }
 

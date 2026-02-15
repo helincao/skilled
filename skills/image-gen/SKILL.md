@@ -1,38 +1,36 @@
 ---
 name: image-gen
-description: Generate images using this repo’s image generation CLI (located under `_core/skills/image-gen/scripts/image-gen/generate.mjs`). Use when asked to create/iterate on images (PNG/JPG/WEBP/GIF), choose aspect ratios, and troubleshoot `.env` / `GEMINI_API_KEY` / CLI usage.
+description: Generate and iterate image assets with `skills/image-gen/scripts/image-gen/generate.mjs`. Use when asked to create visuals (PNG/JPG/WEBP/GIF), refine prompts, choose aspect ratios, or troubleshoot `.env` / `GEMINI_API_KEY` / CLI execution.
 ---
 
-# Image Generator CLI
+# Image Gen
 
-## Overview
+## Inputs
 
-Generate and iterate on images using the repo’s Gemini image generator CLI. Use it to turn a written prompt into an image file on disk, selecting aspect ratio and output filename.
+- Prompt intent (subject + style + constraints)
+- Output path with extension (`.png`, `.jpg`, `.webp`, `.gif`)
+- Optional aspect ratio (see `references/cli.md`)
+- Optional iteration goal (what to change from previous output)
 
-## Quick Start
+## Preconditions
 
-1. Ensure you have a `.env` with `GEMINI_API_KEY=...` (the CLI searches upward from your working directory, then from the script directory).
-2. Pick a prompt and (optionally) an aspect ratio + output path.
-3. Run from the repo root:
+- `.env` must contain `GEMINI_API_KEY`
+- Node.js runtime must support built-in `fetch` (Node 18+)
 
-```bash
-npm run image -- "a serene mountain landscape at sunset"
-npm run image -- "wide cinematic landscape, golden hour, no text" -a 16:9 -o design/hero.png
-```
+## Steps
 
-Or run from inside the skill folder:
-
-```bash
-cd _core/skills/image-gen
-node scripts/image-gen/generate.mjs "wide cinematic landscape, golden hour, no text" -a 16:9 -o ../../../design/hero.png
-```
-
-## What To Ask For Before Generating
-
-- **Usage**: website hero background, poster, sticker, icon, product mockup, etc.
-- **Aspect ratio**: pick from the supported list (see `_core/skills/image-gen/references/cli.md`).
-- **Constraints**: “no text”, “no watermark”, “no logo”, background-only, negative space for copy.
-- **Style**: photo vs illustration, lighting, camera angle/lens, mood, color palette.
+1. Gather missing requirements before generating:
+   1. Usage context (hero, icon, background, poster, etc.)
+   2. Visual constraints (no text, no logo, no watermark, negative space, etc.)
+   3. Aspect ratio and output path
+2. If prompt quality is unclear, read `references/prompting.md` and construct a cleaner prompt.
+3. If CLI flags/aspect options are unclear, read `references/cli.md`.
+4. Run generation from project root:
+   ```bash
+   npm run image -- "<prompt>" -a <aspect-ratio> -o <output-path>
+   ```
+5. Confirm the output file exists and is non-empty.
+6. If the user asks for iteration, keep output path versioned (for example `hero-v2.png`) unless overwrite is requested.
 
 ## Troubleshooting
 
@@ -42,8 +40,8 @@ node scripts/image-gen/generate.mjs "wide cinematic landscape, golden hour, no t
 - **API request failed**: include the HTTP status + error body in the report; likely an invalid key, quota/rate limit, or model/API change.
 - **Output path errors**: ensure the destination directory exists (the CLI doesn’t create directories).
 
-## Where To Look In This Repo
+## Output
 
-- CLI options and aspect ratios: `_core/skills/image-gen/references/cli.md`
-- Prompting tips: `_core/skills/image-gen/references/prompting.md`
-- Implementation details (model, API request shape): `_core/skills/image-gen/scripts/image-gen/generate.mjs`
+- Generated image file at requested path
+- Command used (prompt + flags) so the result is reproducible
+- Optional iteration suggestions if user requests refinement

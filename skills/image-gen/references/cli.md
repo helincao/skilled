@@ -11,7 +11,7 @@ npm run image -- "<prompt>" [-a <ratio>] [-o <path>]
 Or run from inside the skill folder:
 
 ```bash
-cd _core/skills/image-gen
+cd skills/image-gen
 node scripts/image-gen/generate.mjs "<prompt>" [-a <ratio>] [-o <path>]
 ```
 
@@ -32,4 +32,4 @@ node scripts/image-gen/generate.mjs "<prompt>" [-a <ratio>] [-o <path>]
 
 ## Prompting tips
 
-See `_core/skills/image-gen/references/prompting.md`.
+See `skills/image-gen/references/prompting.md`.
