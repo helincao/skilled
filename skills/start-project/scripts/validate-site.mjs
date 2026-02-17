@@ -101,7 +101,7 @@ function main() {
       issues,
       "error",
       distDir,
-      "Missing dist/ directory. Run npm run build before validate:site.",
+      "Missing dist/ directory. Run the build skill script before validate-site.",
     );
   }
   if (!existsSync(siteConfigPath)) {

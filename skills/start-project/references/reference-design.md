@@ -57,12 +57,11 @@ Required keys:
 
 ## Workflow contract
 
-Ensure these package scripts exist:
+Run these script files from installed skills:
 
-1. `lint:site`: source structure + metadata checks
-2. `build`: `src/` -> `dist/`, partial and SEO injection
-3. `validate:site`: output-level checks in `dist/`
-4. `check:site`: runs `lint:site && build && validate:site`
+1. `start-project/scripts/lint-site.mjs`: source structure + metadata checks
+2. `build/scripts/build.mjs`: `src/` -> `dist/`, partial and SEO injection
+3. `start-project/scripts/validate-site.mjs`: output-level checks in `dist/`
 
 ## Customization guidance
 

@@ -1,6 +1,6 @@
 ---
 name: build
-description: Internal utility skill for regenerating site output. Use after any change to `src/`, `_partials/`, or `site.config.json`, or whenever another skill requires refreshed `dist/` artifacts. Runs `skills/build/scripts/build.mjs` through `npm run build`.
+description: Internal utility skill for regenerating site output. Use after any change to `src/`, `_partials/`, or `site.config.json`, or whenever another skill requires refreshed `dist/` artifacts. Runs `scripts/build.mjs` from the installed skill directory.
 ---
 
 # Build
@@ -9,16 +9,16 @@ description: Internal utility skill for regenerating site output. Use after any 
 
 - Project root containing `src/`, `_partials/`, and `site.config.json`
 - Optional precompiled CSS at `src/css/site.css`
+- `SKILL_DIR`: directory containing this `SKILL.md`
 
 ## Steps
 
-1. From project root, run:
+1. Resolve:
+   1. `PROJECT_ROOT`: target user project root
+   2. `SKILL_DIR`: directory containing this `SKILL.md`
+2. Run:
    ```bash
-   npm run build
-   ```
-2. If npm scripts are unavailable, run:
-   ```bash
-   node skills/build/scripts/build.mjs --project-root .
+   node "$SKILL_DIR/scripts/build.mjs" --project-root "$PROJECT_ROOT"
    ```
 3. Confirm `dist/` exists and contains built HTML files.
 4. If this skill is called by another skill workflow, fail fast on build errors and return the exact error text.
@@ -33,4 +33,4 @@ description: Internal utility skill for regenerating site output. Use after any 
 ## Conventions
 
 - Treat this as deterministic infrastructure: do not invent content here.
-- Prefer calling via `npm run build` so repo-level scripts remain the single interface.
+- Do not assume the user project has `package.json` scripts.

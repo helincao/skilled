@@ -1,6 +1,6 @@
 ---
 name: image-gen
-description: Generate and iterate image assets with `skills/image-gen/scripts/image-gen/generate.mjs`. Use when asked to create visuals (PNG/JPG/WEBP/GIF), refine prompts, choose aspect ratios, or troubleshoot `.env` / `GEMINI_API_KEY` / CLI execution.
+description: Generate and iterate image assets with `scripts/image-gen/generate.mjs` from the installed skill directory. Use when asked to create visuals (PNG/JPG/WEBP/GIF), refine prompts, choose aspect ratios, or troubleshoot `.env` / `GEMINI_API_KEY` / CLI execution.
 ---
 
 # Image Gen
@@ -27,8 +27,9 @@ description: Generate and iterate image assets with `skills/image-gen/scripts/im
 3. If CLI flags/aspect options are unclear, read `references/cli.md`.
 4. Run generation from project root:
    ```bash
-   npm run image -- "<prompt>" -a <aspect-ratio> -o <output-path>
+   node "$SKILL_DIR/scripts/image-gen/generate.mjs" "<prompt>" -a <aspect-ratio> -o <output-path>
    ```
+   `SKILL_DIR` is the directory containing this `SKILL.md`.
 5. Confirm the output file exists and is non-empty.
 6. If the user asks for iteration, keep output path versioned (for example `hero-v2.png`) unless overwrite is requested.
 

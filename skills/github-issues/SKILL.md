@@ -5,7 +5,13 @@ description: Triage and resolve repository GitHub issues using the bundled CLI. 
 
 # GitHub Issues
 
-Use `npm run issues -- ...` for all GitHub issue reads and writes.
+Use the installed skill script directly:
+
+```bash
+node "$SKILL_DIR/scripts/github-issues.mjs" <command> [options]
+```
+
+`SKILL_DIR` is the directory containing this `SKILL.md`.
 
 ## Inputs
 
@@ -17,7 +23,7 @@ Use `npm run issues -- ...` for all GitHub issue reads and writes.
 ## Steps
 
 1. Read issue details and comments:
-   - `npm run issues -- read -n <issue-number> --comments`
+   - `node "$SKILL_DIR/scripts/github-issues.mjs" read -n <issue-number> --comments`
 2. Classify issue type:
    1. Code-change request
    2. Brainstorm/open discussion
@@ -40,12 +46,12 @@ Use `npm run issues -- ...` for all GitHub issue reads and writes.
 
 ## CLI Reference
 
-- Work queue: `npm run issues -- worklist`
-- List open issues: `npm run issues -- read -s open -l 20`
-- Read one issue: `npm run issues -- read -n <issue-number>`
-- Read issue + comments: `npm run issues -- read -n <issue-number> --comments`
-- Add comment: `npm run issues -- comment -n <issue-number> -b "<text>"`
-- Close issue: `npm run issues -- close -n <issue-number> -b "<resolution note>"`
+- Work queue: `node "$SKILL_DIR/scripts/github-issues.mjs" worklist`
+- List open issues: `node "$SKILL_DIR/scripts/github-issues.mjs" read -s open -l 20`
+- Read one issue: `node "$SKILL_DIR/scripts/github-issues.mjs" read -n <issue-number>`
+- Read issue + comments: `node "$SKILL_DIR/scripts/github-issues.mjs" read -n <issue-number> --comments`
+- Add comment: `node "$SKILL_DIR/scripts/github-issues.mjs" comment -n <issue-number> -b "<text>"`
+- Close issue: `node "$SKILL_DIR/scripts/github-issues.mjs" close -n <issue-number> -b "<resolution note>"`
 
 ## Conventions
 

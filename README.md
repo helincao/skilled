@@ -10,7 +10,7 @@ You tell an AI agent what you want. The agent reads skills — folders with inst
 - **The agent is the interface.** Claude Code, Codex, and similar agents discover skills in their native directories (`.claude/skills/`, `.codex/skills/`). The agent reads `SKILL.md` and acts.
 - **Drop-in by design.** This project only uses skills + scripts: repo-contained, works immediately with minimal agent-specific setup. MCP is not prioritized because it still requires agent-specific tool registration.
 - **You own the output.** Plain HTML, CSS, and config files. No proprietary format, no runtime dependency.
-- **Core skills update cleanly.** `skills/` updates via `git merge` without touching your content.
+- **Core skills update cleanly.** `skills/` updates without touching your content.
 
 Frameworks give developers abstractions to code against. Skills give agents instructions to act on. The unit of reuse is a workflow, not a library.
 
@@ -29,97 +29,107 @@ Frameworks give developers abstractions to code against. Skills give agents inst
 
 **Trade-offs:**
 
-- **Requires an AI agent.** Without one, you can still `npm run build`, but you lose the skill-powered workflow.
+- **Requires an AI agent.** 
 - **Skills are natural language.** Different agents may interpret `SKILL.md` differently.
 - **No incremental builds.** Full copy of `src/` to `dist/` every time.
 
 ## Quick Start
 
 ```bash
-npx degit helincao/skilled my-site
-cd my-site
-npm install
-npm run setup:skills
-
-# Optional: target one agent
-npm run setup:skills --agent=claude  # Claude Code
-npm run setup:skills --agent=codex  # OpenAI Codex
+# Install skills directly from GitHub
+npx skills add https://github.com/helincao/skilled/
 ```
 
-Then, in your agent interface:
+Then, in your agent interface to invoke the `start-project` skill and say your project details.
 
-- Codex: `/start-project` or `$start-project`
-- Claude Code: `/start-project` or plain language, e.g. "start a project"
-
-This package currently ships these skills:
+This repo currently ships these skills:
 
 1. `start-project`
 2. `build`
 3. `github-issues`
 4. `image-gen`
 
-Copy `.env.example` to `.env` and fill in the values for skills that need them.
+Note: some of the skills require API keys. "github-issues" skill requires a GitHub token with `repo` scope. "image-gen" skill requires an Gemini key with access. Copy `.env.example` to `.env` and fill in the values for skills that need them.
+
+## Skill Management
+
+Skilled relies on the upstream `skills` CLI for all skill lifecycle operations.
+
+Install core skills:
+
+```bash
+# Default install flow
+npx skills add https://github.com/helincao/skilled/
+
+# Target one agent
+npx skills add https://github.com/helincao/skilled/ --all --agent codex --yes
+npx skills add https://github.com/helincao/skilled/ --all --agent claude-code --yes
+
+# Non-interactive install for both Codex and Claude Code
+npx skills add https://github.com/helincao/skilled/ --all --agent codex --agent claude-code --yes
+```
+
+Inspect and maintain installed skills:
+
+```bash
+npx skills list
+npx skills find "image"
+npx skills check --all
+npx skills update --all --yes
+```
+
+Create or remove skills:
+
+```bash
+npx skills init my-custom-skill --agent codex --yes
+npx skills remove <skill-name> --agent codex --yes
+```
 
 ## Reference Design
 
 Project structure follows a simple ownership rule: `skills/` is upstream, everything else is yours.
 
-Agents scan their native skill directory (`.claude/skills/` or `.codex/skills/`). Each entry is either:
+Agents scan their native skill directory (typically `~/.claude/skills/` or `~/.codex/skills/`). Each entry is either:
 
-- **A symlink** to `skills/<name>` for a core skill that updates via merge
+- **A managed install** created by `skills add` from the remote repository
 - **A real folder** for your custom skill that upstream never touches
 
-Run `npm run setup:skills` after pulling upstream updates to create symlinks for any new core skills.
-
-To create a custom skill, add a folder with `SKILL.md` under `.claude/skills/` or `.codex/skills/`. Keep it as a real folder (not a symlink) so upstream updates cannot overwrite it.
+Run `npx skills add https://github.com/helincao/skilled/ --all --agent codex --agent claude-code --yes` after pulling upstream updates to register any new core skills.
 
 ## Security
 
-Skills are scripts that run on your machine with your user permissions. Same trust model as npm packages.
+Skills are scripts that run on your machine with your user permissions. Same trust model as any local script you execute.
 
 - **Review before merging.** Check `git diff` on `skills/` before running new skills.
 - **API keys are shared.** All skills can read `.env`. Don't store secrets beyond what skills require.
 - **Scripts run unsandboxed.** A compromised skill has full user-level access.
 - **Custom skills are your responsibility.** Core skills are maintained upstream. Custom skills are on you.
 
-## Upstream Updates
+### Customizing a core skill
 
-`skills/` updates via `git merge`. You never edit `skills/`, so merges are clean.
-
-```bash
-# One-time: add remote
-git remote add skilled https://github.com/helincao/skilled.git
-
-# Update
-git fetch skilled
-git merge skilled/main
-
-# Review
-git diff HEAD~1 -- skills/ setup-skills.mjs
-
-# Symlink new skills
-npm run setup:skills
-```
-
-### Ejecting a skill
-
-To customize a core skill, copy it out of `skills/`:
+To customize one core skill for a specific agent, install it as a non-linked copy:
 
 ```bash
-cp -r skills/build .claude/skills/build
-# The real folder replaces the symlink
+npx skills remove build --agent codex --yes
+npx skills add https://github.com/helincao/skilled/ --skill build --agent codex --link false --yes
 ```
 
-That skill is now yours. Upstream changes won't affect it. Ejection is one-way — no mechanism to selectively merge upstream changes back in.
+That copy is now yours to edit. Upstream changes won't auto-apply until you reinstall/update it.
 
 ## Deployment
 
-Point any static host at `dist/`. Build command is `npm run build` everywhere. Build generates `sitemap.xml` and `robots.txt` automatically.
+Point any static host at `dist/`. Build generates `sitemap.xml` and `robots.txt` automatically:
+
+```bash
+node skills/build/scripts/build.mjs --project-root .
+```
 
 Recommended pre-deploy check:
 
 ```bash
-npm run check:site
+node skills/start-project/scripts/lint-site.mjs --project-root .
+node skills/build/scripts/build.mjs --project-root .
+node skills/start-project/scripts/validate-site.mjs --project-root .
 ```
 
 Works with Cloudflare Pages, Netlify, GitHub Pages, Vercel — anything that serves static files.
@@ -135,7 +145,7 @@ Works with Cloudflare Pages, Netlify, GitHub Pages, Vercel — anything that ser
 
 ## Contributing
 
-File issues on [GitHub](https://github.com/helincao/skilled). For code: fork, feature branch, keep `skills/` generic, test with a fresh clone + invoke `start-project` + `npm run check:site`, submit a PR.
+File issues on [GitHub](https://github.com/helincao/skilled). For code: fork, feature branch, keep `skills/` generic, test with a fresh clone + invoke `start-project` + run lint/build/validate scripts, submit a PR.
 
 
 ## License

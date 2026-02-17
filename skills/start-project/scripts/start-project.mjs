@@ -3,6 +3,10 @@
 import { existsSync, mkdirSync, writeFileSync } from "fs";
 import { dirname, join, resolve } from "path";
 import { spawnSync } from "child_process";
+import { fileURLToPath } from "url";
+
+const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
+const BUILD_SCRIPT = resolve(SCRIPT_DIR, "..", "..", "build", "scripts", "build.mjs");
 
 function printUsage() {
   console.log(`
@@ -20,7 +24,7 @@ Options:
   --locale, -l <locale>       Locale for OG metadata (default: en_US)
   --project-root <path>       Root directory to scaffold (default: current directory)
   --force                     Overwrite existing scaffold files
-  --build                     Run npm run build after scaffolding
+  --build                     Run build after scaffolding (prefers installed build skill script)
   -h, --help                  Show help
 `);
 }
@@ -343,7 +347,14 @@ function scaffoldProject(args) {
 }
 
 function runBuild(projectRoot) {
-  const result = spawnSync("npm", ["run", "build"], {
+  if (!existsSync(BUILD_SCRIPT)) {
+    console.error("Build skill script not found.");
+    console.error(`Expected: ${BUILD_SCRIPT}`);
+    console.error("Install the build skill before using --build.");
+    process.exit(1);
+  }
+
+  const result = spawnSync("node", [BUILD_SCRIPT, "--project-root", projectRoot], {
     cwd: projectRoot,
     stdio: "inherit",
     shell: process.platform === "win32",
@@ -393,7 +404,11 @@ function main() {
     console.log("Running build...");
     runBuild(root);
   } else {
-    console.log("Next step: npm run build");
+    if (existsSync(BUILD_SCRIPT)) {
+      console.log(`Next step: node "${BUILD_SCRIPT}" --project-root "${root}"`);
+    } else {
+      console.log("Next step: install the build skill, then run its build script.");
+    }
   }
 }
 

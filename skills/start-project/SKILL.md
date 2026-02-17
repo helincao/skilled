@@ -1,6 +1,6 @@
 ---
 name: start-project
-description: Primary project-initialization orchestrator for Skilled. Use when a repository is missing site files or needs a fresh architecture. Create required files directly from the brief, optionally apply `references/reference-design.md`, then run lint/build/validate quality gates.
+description: Primary project-initialization orchestrator for Skilled. Use when a repository is missing site files or needs a fresh architecture. Create required files directly from the brief, optionally apply `references/reference-design.md`, then run lint/build/validate quality gates via installed skill scripts.
 ---
 
 # Start Project
@@ -33,16 +33,16 @@ Use this skill to create the first runnable site from a brief and enforce workfl
 3. Create files directly from the agent (do not run scaffolding CLI by default):
    1. Required for build compatibility: `site.config.json`, `_partials/header.html`, `_partials/footer.html`, and at least one HTML page in `src/`.
    2. Add any additional pages/assets/scripts needed for the chosen architecture.
-4. Ensure workflow scripts exist in `package.json`:
-   ```bash
-   npm run lint:site
-   npm run build
-   npm run validate:site
-   npm run check:site
-   ```
+4. Resolve script locations:
+   1. `PROJECT_ROOT`: target user project root
+   2. `SKILL_DIR`: directory containing this `SKILL.md`
+   3. `BUILD_SKILL_DIR`: sibling `build` skill directory (same parent as `SKILL_DIR`)
+   4. If `BUILD_SKILL_DIR` is missing, stop and ask the user to install the `build` skill.
 5. Run the workflow from project root:
    ```bash
-   npm run lint:site && npm run build && npm run validate:site
+   node "$SKILL_DIR/scripts/lint-site.mjs" --project-root "$PROJECT_ROOT"
+   node "$BUILD_SKILL_DIR/scripts/build.mjs" --project-root "$PROJECT_ROOT"
+   node "$SKILL_DIR/scripts/validate-site.mjs" --project-root "$PROJECT_ROOT"
    ```
 6. Fix any failures and rerun until checks pass.
 7. Report:
@@ -58,16 +58,15 @@ Use this skill to create the first runnable site from a brief and enforce workfl
   - `_partials/header.html`
   - `_partials/footer.html`
   - `src/**/*.html` (at least one page)
-- Workflow scripts and passing checks:
-  - `lint:site`
-  - `build`
-  - `validate:site`
-  - `check:site`
+- Passing quality gates from installed scripts:
+  - `lint-site.mjs`
+  - `build.mjs`
+  - `validate-site.mjs`
 - `dist/` output generated from `build`
 
 ## Conventions
 
 - Do not overwrite existing files unless explicitly requested.
-- Keep compatibility with `skills/build/scripts/build.mjs`.
+- Keep compatibility with `build/scripts/build.mjs`.
 - Use the opinionated reference design as a default option, not a hard requirement.
-- Use `npm run start:project` only when the user explicitly asks for the legacy CLI scaffold path.
+- Use `scripts/start-project.mjs` only when the user explicitly asks for the legacy CLI scaffold path.
