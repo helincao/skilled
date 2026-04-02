@@ -142,3 +142,7 @@ vite.config.ts.timestamp-*
 .DS_Store
 .ds_store
 
+agent-skills/
+.claude/
+reference-projects/
+

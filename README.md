@@ -1,89 +1,201 @@
 # Skilled
 
-`Skilled` is a static-site workflow where AI skills replace the framework.
-You describe what you want, the agent runs skills, and you keep plain HTML/CSS output.
+Skill lifecycle manager for AI agent skills. Install skills from remote repos, keep them in sync, and upstream local changes — all in one tool.
 
-## Why Use It
+## Why
 
-- **Workflow-first:** Reusable skills (`SKILL.md` + scripts) instead of framework APIs.
-- **Agent-native:** Works with agents that read skill folders (for example Codex and Claude Code).
-- **Portable output:** Build artifacts are standard static files you can host anywhere.
+AI agent skills (Claude Code, Cursor, Copilot) live as local directories. Once installed, they go stale. If you improve a skill locally, there's no easy way to push it back. Skilled solves the full lifecycle:
 
-## Included Skills
+- **Search** available skills in any GitHub repo before installing
+- **Install** skills from any GitHub repo with one command
+- **Check** for drift between your local copy and the remote source
+- **Sync** to pull the latest version from upstream
+- **Upstream** local changes back to the source via pull request
+- **Auto-detect** conflicts on `git push` via a pre-push hook
+- **Structured output** via `--json` for scripting and agent consumption
 
-- `start-project`: Project setup plus lint/validation helpers.
-- `build`: Builds `src/` into `dist/` and generates `sitemap.xml` and `robots.txt`.
-- `github-issues`: Triage and resolve GitHub issues from the CLI.
-- `image-gen`: Generate images for site/content workflows.
+## Install
+
+```bash
+npm install -g skilled
+```
+
+Or use directly:
+
+```bash
+npx skilled install <owner/repo>
+```
 
 ## Quick Start
 
-Install from GitHub:
-
 ```bash
-npx skills add https://github.com/helincao/skilled/
+# Install all skills from a repo
+skilled install <owner/repo>
+
+# Install a specific skill
+skilled install <owner/repo> --skill build
+
+# Restore all skills from the lockfile (like npm install)
+skilled install
+
+# Install targeting specific agent systems
+skilled install <owner/repo> --agent claude-code cursor copilot
+
+# Browse available skills in a repo
+skilled search <owner/repo>
+
+# Search for a specific skill by keyword
+skilled search <owner/repo> deploy
+
+# See what you have
+skilled list
+
+# Check for drift/conflicts with remote
+skilled check
+
+# Pull latest from remote
+skilled sync
+
+# Push your local changes back upstream as a PR
+skilled upstream build
+
+# Set up pre-push hook for automatic reminders
+skilled hooks install
 ```
 
-Then in your agent, invoke `start-project` and provide your project details.
-Use the reference scaffolding by default unless you intentionally want to diverge from the baseline architecture.
+## Multi-Agent Support
 
-## Reference Scaffolding
+Skilled automatically detects which agent systems are configured in your project and generates instruction files so each agent knows about your installed skills.
 
-Skilled ships an opinionated reference scaffolding that core skills work best with.
-Start from this baseline first, then adapt it to your project needs.
+### Supported Agents
 
-Reference: [`skills/start-project/references/reference-design.md`](skills/start-project/references/reference-design.md)
+| Agent | Instruction File | Detection |
+|-------|-----------------|-----------|
+| Claude Code | `CLAUDE.md` | `CLAUDE.md` or `.claude/` exists |
+| Cursor | `.cursor/rules/skills.mdc` | `.cursor/` or `.cursorrules` exists |
+| GitHub Copilot | `.github/copilot-instructions.md` | `.github/copilot-instructions.md` exists |
+| Windsurf | `.windsurfrules` | `.windsurfrules` exists |
+| Codex | `AGENTS.md` | `AGENTS.md` exists |
 
-## Required Keys
+### How It Works
 
-Some skills need credentials. Copy `.env.example` to `.env` and set only what you use:
+On `install` and `sync`, Skilled:
 
-- `github-issues`: GitHub token (`repo` scope).
-- `image-gen`: Gemini API key.
+1. **Auto-detects** which agents are configured (or uses `--agent` if specified)
+2. **Generates a managed block** in each agent's instruction file listing available skills
+3. **Preserves existing content** — only the `<!-- skilled:managed-start -->` / `<!-- skilled:managed-end -->` block is touched
 
-## Common Skill Commands
-
-```bash
-# Install/update/check
-npx skills add https://github.com/helincao/skilled/ --all --agent codex --agent claude-code --yes
-npx skills check --all
-npx skills update --all --yes
-
-# Explore installed skills
-npx skills list
-npx skills find "image"
-```
-
-Customize one core skill (non-linked copy):
+To target specific agents instead of auto-detecting:
 
 ```bash
-npx skills remove build --agent codex --yes
-npx skills add https://github.com/helincao/skilled/ --skill build --agent codex --link false --yes
+skilled install <owner/repo> --agent claude-code cursor
 ```
 
-## Build and Deploy
+## How It Works
 
-Run local checks before deploy:
+Skilled tracks provenance in a `skills.lock.json` file:
 
-```bash
-node skills/start-project/scripts/lint-site.mjs --project-root .
-node skills/build/scripts/build.mjs --project-root .
-node skills/start-project/scripts/validate-site.mjs --project-root .
+```json
+{
+  "version": 1,
+  "skills": {
+    "build": {
+      "name": "build",
+      "repo": "<owner/repo>",
+      "remotePath": "skills/build",
+      "commitSha": "245d134...",
+      "syncedAt": "2026-03-31T...",
+      "installedHash": "a1b2c3d4..."
+    }
+  }
+}
 ```
 
-Deploy `dist/` to any static host (Cloudflare Pages, Netlify, GitHub Pages, Vercel, etc.).
+Each skill entry records where it came from, what commit it was pulled at, and a content hash at install time. This allows Skilled to detect:
 
-## Security Notes
+- **Local modifications** — your hash differs from the installed hash
+- **Remote updates** — the remote HEAD differs from your recorded commit
+- **Conflicts** — both local and remote have changed
 
-- Skills execute as local scripts with your user permissions.
-- Review `skills/` changes before running new or updated skills.
-- Treat `.env` as shared across skills in this repo.
+## Commands
 
-## Current Limits
+### `skilled install [repo]`
 
-- No incremental build pipeline (full `src/` copy each build).
-- No built-in asset optimization/minification pipeline.
-- Skill behavior can vary by agent implementation.
+Pull skills from a GitHub repo into your local `skills/` directory. When called without a repo, restores all skills tracked in `skills.lock.json` — useful after a fresh clone or when `skills/` is gitignored. Skills are grouped by source repo to minimize network requests.
+
+| Flag | Description |
+|------|-------------|
+| `-s, --skill <name>` | Install only this skill |
+| `-f, --force` | Overwrite existing local skills |
+| `-a, --agent <types...>` | Target agent systems (auto-detects if omitted) |
+
+Accepts `<owner/repo>`, HTTPS URLs, or SSH URLs.
+
+### `skilled search <repo> [query]`
+
+Browse available skills in a remote repository. Without a query, lists all skills. With a query, filters by keyword match against skill name and description.
+
+| Flag | Description |
+|------|-------------|
+| `--json` | Output as JSON |
+
+### `skilled list`
+
+Show all tracked skills with their status: `clean`, `modified`, or `MISSING`.
+
+| Flag | Description |
+|------|-------------|
+| `--json` | Output as JSON |
+
+### `skilled check [skill]`
+
+Compare local skills against their remote source. Reports:
+- `✓` Up to date
+- `↑` Local changes (not yet upstreamed)
+- `↓` Remote has updates
+- `⚡` Conflict (both sides changed)
+
+Exits with code 1 if any conflicts are detected.
+
+| Flag | Description |
+|------|-------------|
+| `--json` | Output as JSON |
+
+### `skilled sync [skill]`
+
+Pull the latest version from the remote source.
+
+| Flag | Description |
+|------|-------------|
+| `-f, --force` | Overwrite local modifications |
+
+Refuses to overwrite local changes unless `--force` is set. Upstream your changes first, or use `--force` to discard them.
+
+### `skilled upstream <skill>`
+
+Create a pull request on the source repository with your local changes.
+
+Requires `GITHUB_TOKEN` or `GH_TOKEN` environment variable. Automatically forks the repo if needed, creates a branch, and opens a PR.
+
+### `skilled hooks install`
+
+Install a git `pre-push` hook that runs `skilled check` before every push. Warns (but does not block) if skills have un-upstreamed changes or conflicts.
+
+## Included Skills
+
+This repo also ships a set of built-in skills for static-site workflows:
+
+- `start-project` — Project setup plus lint/validation helpers
+- `build` — Builds `src/` into `dist/` with sitemap and robots.txt
+- `github-issues` — Triage and resolve GitHub issues from the CLI
+- `image-gen` — Generate images for site/content workflows
+- `use-gmail` — Gmail integration skill
+
+## Environment Variables
+
+| Variable | Used by |
+|----------|---------|
+| `GITHUB_TOKEN` or `GH_TOKEN` | `upstream` command (PR creation) |
 
 ## License
 

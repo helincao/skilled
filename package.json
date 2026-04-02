@@ -1,0 +1,44 @@
+{
+  "name": "skilled",
+  "version": "0.1.0",
+  "description": "Skill lifecycle manager for AI agent skills — install, sync, upstream, and detect conflicts.",
+  "type": "module",
+  "bin": {
+    "skilled": "./dist/bin/skilled.js"
+  },
+  "files": [
+    "dist",
+    "templates"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "commander": "^13.1.0",
+    "gray-matter": "^4.0.3",
+    "octokit": "^4.1.2",
+    "simple-git": "^3.27.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "tsup": "^8.4.0",
+    "typescript": "^5.7.3",
+    "vitest": "^3.1.1"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "skills",
+    "cli",
+    "lifecycle"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/helincao/skilled.git"
+  }
+}
