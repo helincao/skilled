@@ -268,3 +268,159 @@ describe("sync command", () => {
     expect(entry.installedHash).not.toBe(hash);
   });
 });
+
+// ── --dry-run for sync ────────────────────────────────────
+
+describe("sync --dry-run", () => {
+  let tmp: string;
+
+  beforeEach(() => {
+    tmp = mkdtempSync(join(tmpdir(), "skilled-sync-dryrun-"));
+    mkdirSync(join(tmp, ".agents", "skills"), { recursive: true });
+    vi.mocked(shallowClone).mockReset();
+  });
+
+  afterEach(() => {
+    rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it("does not overwrite local files when dry-run is set", async () => {
+    const skillDir = join(tmp, ".agents", "skills", "my-skill");
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(join(skillDir, "SKILL.md"), "original content");
+
+    const hash = hashDirectory(skillDir);
+    writeLockfile(tmp, {
+      version: 1,
+      skills: { "my-skill": makeEntry({ installedHash: hash }) },
+    });
+
+    setupCloneMock(tmp, ["my-skill"]);
+
+    await sync(tmp, undefined, { dryRun: true });
+
+    expect(readFileSync(join(skillDir, "SKILL.md"), "utf-8")).toBe("original content");
+  });
+
+  it("does not update the lockfile when dry-run is set", async () => {
+    const skillDir = join(tmp, ".agents", "skills", "my-skill");
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(join(skillDir, "SKILL.md"), "original content");
+
+    const hash = hashDirectory(skillDir);
+    const originalEntry = makeEntry({ installedHash: hash, commitSha: "old-sha" });
+    writeLockfile(tmp, { version: 1, skills: { "my-skill": originalEntry } });
+
+    setupCloneMock(tmp, ["my-skill"]);
+
+    await sync(tmp, undefined, { dryRun: true });
+
+    const lockfile = readLockfile(tmp);
+    expect(lockfile.skills["my-skill"].commitSha).toBe("old-sha");
+  });
+
+  it("dry-run still clones to gather what would change", async () => {
+    const skillDir = join(tmp, ".agents", "skills", "my-skill");
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(join(skillDir, "SKILL.md"), "content");
+
+    const hash = hashDirectory(skillDir);
+    writeLockfile(tmp, { version: 1, skills: { "my-skill": makeEntry({ installedHash: hash }) } });
+
+    setupCloneMock(tmp, ["my-skill"]);
+
+    await sync(tmp, undefined, { dryRun: true });
+
+    // A clone is still needed to know what the remote looks like
+    expect(shallowClone).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ── sync (local path) ─────────────────────────────────────
+
+describe("sync (local path entries)", () => {
+  let tmp: string;
+  let localRepo: string;
+
+  beforeEach(() => {
+    tmp = mkdtempSync(join(tmpdir(), "skilled-sync-local-"));
+    mkdirSync(join(tmp, ".agents", "skills"), { recursive: true });
+    localRepo = join(tmp, "_local_repo");
+    const skillDir = join(localRepo, "skills", "my-skill");
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(
+      join(skillDir, "SKILL.md"),
+      "---\nname: my-skill\n---\nUpdated local content",
+    );
+    vi.mocked(shallowClone).mockReset();
+  });
+
+  afterEach(() => {
+    rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it("re-copies from local source path without cloning", async () => {
+    const dest = join(tmp, ".agents", "skills", "my-skill");
+    mkdirSync(dest, { recursive: true });
+    writeFileSync(join(dest, "SKILL.md"), "old content");
+
+    const hash = hashDirectory(dest);
+    writeLockfile(tmp, {
+      version: 1,
+      skills: {
+        "my-skill": makeEntry({
+          repo: `file:${localRepo}`,
+          remotePath: "skills/my-skill",
+          commitSha: "",
+          installedHash: hash,
+        }),
+      },
+    });
+
+    await sync(tmp);
+
+    expect(readFileSync(join(dest, "SKILL.md"), "utf-8")).toContain("Updated local content");
+    expect(shallowClone).not.toHaveBeenCalled();
+  });
+
+  it("warns when local source path no longer exists, without throwing", async () => {
+    writeLockfile(tmp, {
+      version: 1,
+      skills: {
+        "my-skill": makeEntry({
+          repo: "file:/nonexistent/path",
+          remotePath: "skills/my-skill",
+          commitSha: "",
+          installedHash: "0000000000000000",
+        }),
+      },
+    });
+
+    await expect(sync(tmp)).resolves.not.toThrow();
+    expect(shallowClone).not.toHaveBeenCalled();
+  });
+
+  it("dry-run with local path does not overwrite files", async () => {
+    const dest = join(tmp, ".agents", "skills", "my-skill");
+    mkdirSync(dest, { recursive: true });
+    writeFileSync(join(dest, "SKILL.md"), "original");
+
+    const hash = hashDirectory(dest);
+    writeLockfile(tmp, {
+      version: 1,
+      skills: {
+        "my-skill": makeEntry({
+          repo: `file:${localRepo}`,
+          remotePath: "skills/my-skill",
+          commitSha: "",
+          installedHash: hash,
+        }),
+      },
+    });
+
+    await sync(tmp, undefined, { dryRun: true });
+
+    expect(readFileSync(join(dest, "SKILL.md"), "utf-8")).toBe("original");
+    expect(shallowClone).not.toHaveBeenCalled();
+  });
+});

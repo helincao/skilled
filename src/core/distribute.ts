@@ -8,7 +8,7 @@ import {
   readdirSync,
 } from "node:fs";
 import { join, relative, dirname } from "node:path";
-import { type AgentType, getSymlinkTargets } from "./agents.js";
+import { type AgentType, getSymlinkTargets, UNIVERSAL_AGENTS } from "./agents.js";
 import { readLockfile } from "./manifest.js";
 import { skillsDir } from "../utils/config.js";
 import { log } from "../utils/logger.js";
@@ -114,11 +114,39 @@ export function distributeAllSkills(
   customDirs?: string[],
 ): void {
   const canonical = skillsDir(root);
-  if (!existsSync(canonical)) return;
+
+  if (!existsSync(canonical)) {
+    log.warn("No canonical skills directory found (.agents/skills). Nothing to distribute.");
+    return;
+  }
 
   const skills = readdirSync(canonical, { withFileTypes: true })
     .filter((d) => d.isDirectory())
     .map((d) => d.name);
+
+  if (skills.length === 0) {
+    log.warn("No skills found in .agents/skills. Nothing to distribute.");
+    return;
+  }
+
+  const symlinkTargets = getSymlinkTargets(agents);
+  const allTargets = [...symlinkTargets, ...(customDirs ?? [])];
+
+  if (allTargets.length === 0) {
+    const agentList = agents.length > 0 ? agents.join(", ") : "none detected";
+    const allUniversal = agents.length > 0 && agents.every((a) => (UNIVERSAL_AGENTS as readonly string[]).includes(a));
+    if (allUniversal) {
+      log.info(
+        `All detected agents (${agentList}) use the canonical directory directly — no symlinks needed.`,
+      );
+    } else {
+      log.warn(
+        `No agent directories to distribute to (agents: ${agentList}). ` +
+        `Run with --agent <type> or ensure an agent config file is present.`,
+      );
+    }
+    return;
+  }
 
   for (const name of skills) {
     distributeSkill(root, name, agents, customDirs);

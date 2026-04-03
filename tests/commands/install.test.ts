@@ -508,3 +508,206 @@ describe("install (single repo)", () => {
     expect(lockfile.skills["build"].agents).toEqual(["claude-code"]);
   });
 });
+
+// ── Local path install ────────────────────────────────────
+
+describe("install (local path)", () => {
+  let tmp: string;
+  let localRepo: string;
+
+  beforeEach(() => {
+    tmp = mkdtempSync(join(tmpdir(), "skilled-install-local-"));
+    vi.mocked(shallowClone).mockReset();
+    // Create a local "repo" directory with a skills/ subdirectory
+    localRepo = join(tmp, "_local_repo");
+    const skillDir = join(localRepo, "skills", "my-skill");
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(
+      join(skillDir, "SKILL.md"),
+      "---\nname: my-skill\ndescription: A skill\n---\nLocal content",
+    );
+    writeLockfile(tmp, { version: 1, skills: {} });
+  });
+
+  afterEach(() => {
+    rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it("installs a skill from a local absolute path without cloning", async () => {
+    await install(localRepo, tmp);
+
+    expect(existsSync(join(tmp, ".agents", "skills", "my-skill", "SKILL.md"))).toBe(true);
+    // Network clone must not be called
+    expect(shallowClone).not.toHaveBeenCalled();
+  });
+
+  it("installs a skill from a relative path (./...)", async () => {
+    // Make localRepo relative to cwd
+    const orig = process.cwd();
+    process.chdir(tmp);
+    try {
+      const rel = "./_local_repo";
+      await install(rel, tmp);
+      expect(existsSync(join(tmp, ".agents", "skills", "my-skill", "SKILL.md"))).toBe(true);
+    } finally {
+      process.chdir(orig);
+    }
+  });
+
+  it("stores a file: prefix in the lockfile repo field", async () => {
+    await install(localRepo, tmp);
+
+    const lockfile = readLockfile(tmp);
+    expect(lockfile.skills["my-skill"].repo).toMatch(/^file:/);
+    expect(lockfile.skills["my-skill"].repo).toContain(localRepo);
+  });
+
+  it("stores an empty commitSha for local installs", async () => {
+    await install(localRepo, tmp);
+
+    const lockfile = readLockfile(tmp);
+    expect(lockfile.skills["my-skill"].commitSha).toBe("");
+  });
+
+  it("throws when the local path does not exist", async () => {
+    await expect(
+      install("/nonexistent/path/to/skills", tmp),
+    ).rejects.toThrow("Local path not found");
+  });
+
+  it("installs only the specified skill with --skill", async () => {
+    // Add a second skill to the local repo
+    const skillBDir = join(localRepo, "skills", "other-skill");
+    mkdirSync(skillBDir, { recursive: true });
+    writeFileSync(join(skillBDir, "SKILL.md"), "---\nname: other-skill\n---\n");
+
+    await install(localRepo, tmp, { skill: "my-skill" });
+
+    expect(existsSync(join(tmp, ".agents", "skills", "my-skill", "SKILL.md"))).toBe(true);
+    expect(existsSync(join(tmp, ".agents", "skills", "other-skill"))).toBe(false);
+  });
+
+  it("throws when --skill names a skill that does not exist in the local repo", async () => {
+    await expect(
+      install(localRepo, tmp, { skill: "nonexistent" }),
+    ).rejects.toThrow("Skill \"nonexistent\" not found");
+  });
+
+  it("respects --force when skill already exists locally", async () => {
+    const dest = join(tmp, ".agents", "skills", "my-skill");
+    mkdirSync(dest, { recursive: true });
+    writeFileSync(join(dest, "SKILL.md"), "existing");
+
+    await install(localRepo, tmp, { force: true });
+
+    expect(readFileSync(join(dest, "SKILL.md"), "utf-8")).toContain("Local content");
+  });
+});
+
+// ── installFromLockfile (local path) ─────────────────────
+
+describe("installFromLockfile (local path entries)", () => {
+  let tmp: string;
+  let localRepo: string;
+
+  beforeEach(() => {
+    tmp = mkdtempSync(join(tmpdir(), "skilled-install-lockfile-local-"));
+    vi.mocked(shallowClone).mockReset();
+    localRepo = join(tmp, "_local_repo");
+    const skillDir = join(localRepo, "skills", "my-skill");
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(
+      join(skillDir, "SKILL.md"),
+      "---\nname: my-skill\n---\nLocal restored content",
+    );
+    vi.mocked(shallowClone).mockReset();
+  });
+
+  afterEach(() => {
+    rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it("restores a skill from a local path without cloning", async () => {
+    const { installFromLockfile } = await import("../../src/commands/install.js");
+    writeLockfile(tmp, {
+      version: 1,
+      skills: {
+        "my-skill": makeEntry({
+          repo: `file:${localRepo}`,
+          remotePath: "skills/my-skill",
+          commitSha: "",
+        }),
+      },
+    });
+
+    await installFromLockfile(tmp, {});
+
+    expect(existsSync(join(tmp, ".agents", "skills", "my-skill", "SKILL.md"))).toBe(true);
+    expect(shallowClone).not.toHaveBeenCalled();
+  });
+
+  it("warns when the local source path no longer exists", async () => {
+    const { installFromLockfile } = await import("../../src/commands/install.js");
+    writeLockfile(tmp, {
+      version: 1,
+      skills: {
+        "my-skill": makeEntry({
+          repo: "file:/nonexistent/path",
+          remotePath: "skills/my-skill",
+          commitSha: "",
+        }),
+      },
+    });
+
+    // Should not throw
+    await expect(installFromLockfile(tmp, {})).resolves.not.toThrow();
+    expect(existsSync(join(tmp, ".agents", "skills", "my-skill"))).toBe(false);
+  });
+});
+
+// ── --dry-run for install ─────────────────────────────────
+
+describe("install --dry-run", () => {
+  let tmp: string;
+
+  beforeEach(() => {
+    tmp = mkdtempSync(join(tmpdir(), "skilled-install-dryrun-"));
+    mkdirSync(join(tmp, ".agents", "skills"), { recursive: true });
+    writeLockfile(tmp, { version: 1, skills: {} });
+    vi.mocked(shallowClone).mockReset();
+  });
+
+  afterEach(() => {
+    rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it("does not write files when dry-run is set", async () => {
+    setupCloneMock(tmp, ["build"]);
+
+    await install("owner/repo", tmp, { dryRun: true });
+
+    expect(existsSync(join(tmp, ".agents", "skills", "build"))).toBe(false);
+  });
+
+  it("does not update the lockfile when dry-run is set", async () => {
+    setupCloneMock(tmp, ["build"]);
+
+    await install("owner/repo", tmp, { dryRun: true });
+
+    const lockfile = readLockfile(tmp);
+    expect(lockfile.skills["build"]).toBeUndefined();
+  });
+
+  it("dry-run from local path does not write files", async () => {
+    const localRepo = join(tmp, "_local_repo");
+    const skillDir = join(localRepo, "skills", "local-skill");
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(join(skillDir, "SKILL.md"), "---\nname: local-skill\n---\n");
+
+    await install(localRepo, tmp, { dryRun: true });
+
+    expect(existsSync(join(tmp, ".agents", "skills", "local-skill"))).toBe(false);
+    const lockfile = readLockfile(tmp);
+    expect(lockfile.skills["local-skill"]).toBeUndefined();
+  });
+});

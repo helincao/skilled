@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { join, resolve as resolvePath } from "node:path";
 
 export interface ResolvedRepo {
   /** "owner/repo" */
@@ -9,6 +9,33 @@ export interface ResolvedRepo {
   owner: string;
   /** Repo name */
   repo: string;
+}
+
+/**
+ * Return true if the input looks like a local filesystem path rather than a
+ * remote repo reference. Matches absolute paths and relative paths starting
+ * with "./" or "../".
+ */
+export function isLocalPath(input: string): boolean {
+  return (
+    input.startsWith("/") ||
+    input.startsWith("./") ||
+    input.startsWith("../") ||
+    input === "." ||
+    input === ".."
+  );
+}
+
+/**
+ * Encode/decode a local path for storage in the lockfile repo field.
+ * We use a "file:" prefix so sync/check can detect local installs.
+ */
+export function encodeLocalRepo(absolutePath: string): string {
+  return `file:${absolutePath}`;
+}
+
+export function decodeLocalRepo(repo: string): string | null {
+  return repo.startsWith("file:") ? repo.slice(5) : null;
 }
 
 /**

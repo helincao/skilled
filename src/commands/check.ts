@@ -3,7 +3,7 @@ import { join } from "node:path";
 import chalk from "chalk";
 import { readLockfile, type SkillEntry } from "../core/manifest.js";
 import { fetchTreeSha, type FetchTreeResult } from "../core/github.js";
-import { resolveRepo } from "../core/resolver.js";
+import { resolveRepo, decodeLocalRepo } from "../core/resolver.js";
 import { shallowClone, diffDirs } from "../core/git.js";
 import { hashDirectory } from "../core/hash.js";
 import { skillsDir } from "../utils/config.js";
@@ -51,6 +51,21 @@ export async function check(
   const results: CheckResult[] = [];
 
   for (const [repo, repoEntries] of byRepo) {
+    // Local-path installs have no remote to check — only report local changes
+    if (decodeLocalRepo(repo) !== null) {
+      for (const entry of repoEntries) {
+        const localDir = join(skillsDir(root), entry.name);
+        if (!existsSync(localDir)) {
+          results.push({ name: entry.name, localModified: false, remoteModified: false, conflict: false, detail: "Local skill directory missing" });
+          continue;
+        }
+        const currentHash = hashDirectory(localDir);
+        const localModified = currentHash !== entry.installedHash;
+        results.push({ name: entry.name, localModified, remoteModified: false, conflict: false, detail: localModified ? "Local changes (installed from local path)" : "Up to date (local path install)" });
+      }
+      continue;
+    }
+
     const resolved = resolveRepo(repo);
     log.step(`Checking ${resolved.slug}...`);
 

@@ -166,5 +166,54 @@ describe("manifest", () => {
       const release = acquireLock(tmp);
       release();
     });
+
+    it("registers an exit listener that cleans up the lock file", () => {
+      const listenersBefore = process.listenerCount("exit");
+      const release = acquireLock(tmp);
+      expect(process.listenerCount("exit")).toBe(listenersBefore + 1);
+      release();
+      // After release, the exit listener should be gone
+      expect(process.listenerCount("exit")).toBe(listenersBefore);
+    });
+
+    it("registers SIGINT and SIGTERM listeners while lock is held", () => {
+      const sigintBefore = process.listenerCount("SIGINT");
+      const sigtermBefore = process.listenerCount("SIGTERM");
+
+      const release = acquireLock(tmp);
+      expect(process.listenerCount("SIGINT")).toBe(sigintBefore + 1);
+      expect(process.listenerCount("SIGTERM")).toBe(sigtermBefore + 1);
+
+      release();
+      expect(process.listenerCount("SIGINT")).toBe(sigintBefore);
+      expect(process.listenerCount("SIGTERM")).toBe(sigtermBefore);
+    });
+
+    it("calling release() a second time is a no-op (idempotent)", () => {
+      const release = acquireLock(tmp);
+      release();
+      expect(existsSync(join(tmp, "skills.lock.json.lock"))).toBe(false);
+      // Second call must not throw
+      expect(() => release()).not.toThrow();
+    });
+
+    it("exit handler removes the lock file when invoked directly", () => {
+      const lockPath = join(tmp, "skills.lock.json.lock");
+      const listenersBefore = process.listenerCount("exit");
+
+      acquireLock(tmp);
+      expect(existsSync(lockPath)).toBe(true);
+
+      // Simulate the exit event by invoking the registered listener
+      const handlers = process.listeners("exit");
+      const newHandler = handlers[handlers.length - 1] as () => void;
+      newHandler();
+
+      expect(existsSync(lockPath)).toBe(false);
+
+      // Clean up — remove the now-stale listener count
+      process.removeListener("exit", newHandler);
+      expect(process.listenerCount("exit")).toBe(listenersBefore);
+    });
   });
 });

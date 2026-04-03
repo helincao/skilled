@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { resolveRepo, findSkillsRoot } from "../../src/core/resolver.js";
+import {
+  resolveRepo,
+  findSkillsRoot,
+  isLocalPath,
+  encodeLocalRepo,
+  decodeLocalRepo,
+} from "../../src/core/resolver.js";
 
 describe("resolveRepo", () => {
   it("parses owner/repo shorthand", () => {
@@ -66,5 +72,59 @@ describe("resolveRepo", () => {
 describe("findSkillsRoot", () => {
   it("returns skills/ subdirectory of clone dir", () => {
     expect(findSkillsRoot("/tmp/clone")).toBe("/tmp/clone/skills");
+  });
+});
+
+describe("isLocalPath", () => {
+  it("recognises absolute paths", () => {
+    expect(isLocalPath("/home/user/skills")).toBe(true);
+    expect(isLocalPath("/")).toBe(true);
+  });
+
+  it("recognises relative paths starting with ./", () => {
+    expect(isLocalPath("./skills")).toBe(true);
+    expect(isLocalPath("./")).toBe(true);
+  });
+
+  it("recognises parent-relative paths starting with ../", () => {
+    expect(isLocalPath("../sibling-repo")).toBe(true);
+    expect(isLocalPath("../../nested")).toBe(true);
+  });
+
+  it("recognises bare . and ..", () => {
+    expect(isLocalPath(".")).toBe(true);
+    expect(isLocalPath("..")).toBe(true);
+  });
+
+  it("does not match owner/repo shorthand", () => {
+    expect(isLocalPath("owner/repo")).toBe(false);
+  });
+
+  it("does not match HTTPS URLs", () => {
+    expect(isLocalPath("https://github.com/owner/repo")).toBe(false);
+  });
+
+  it("does not match SSH URLs", () => {
+    expect(isLocalPath("git@github.com:owner/repo.git")).toBe(false);
+  });
+});
+
+describe("encodeLocalRepo / decodeLocalRepo", () => {
+  it("encodes an absolute path with a file: prefix", () => {
+    expect(encodeLocalRepo("/home/user/skills")).toBe("file:/home/user/skills");
+  });
+
+  it("decodes a file: URI back to the path", () => {
+    expect(decodeLocalRepo("file:/home/user/skills")).toBe("/home/user/skills");
+  });
+
+  it("returns null for non-local repo strings", () => {
+    expect(decodeLocalRepo("owner/repo")).toBeNull();
+    expect(decodeLocalRepo("https://github.com/owner/repo")).toBeNull();
+  });
+
+  it("round-trips correctly", () => {
+    const original = "/var/tmp/my-skills-repo";
+    expect(decodeLocalRepo(encodeLocalRepo(original))).toBe(original);
   });
 });

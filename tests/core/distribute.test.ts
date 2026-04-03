@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   mkdtempSync,
   mkdirSync,
@@ -17,6 +17,7 @@ import {
   getCustomDirs,
 } from "../../src/core/distribute.js";
 import { writeLockfile } from "../../src/core/manifest.js";
+import { log } from "../../src/utils/logger.js";
 import type { AgentType } from "../../src/core/agents.js";
 
 describe("distribute", () => {
@@ -110,6 +111,71 @@ describe("distribute", () => {
 
       expect(existsSync(join(tmp, ".claude", "skills", "build"))).toBe(true);
       expect(existsSync(join(tmp, ".claude", "skills", "test"))).toBe(true);
+    });
+
+    it("warns when canonical directory does not exist", () => {
+      // Use a fresh tmp with no .agents/skills
+      const emptyTmp = mkdtempSync(join(tmpdir(), "skilled-dist-empty-"));
+      const warnSpy = vi.spyOn(log, "warn");
+      try {
+        distributeAllSkills(emptyTmp, ["claude-code"] as AgentType[]);
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining("No canonical skills directory found"),
+        );
+      } finally {
+        warnSpy.mockRestore();
+        rmSync(emptyTmp, { recursive: true, force: true });
+      }
+    });
+
+    it("warns when canonical directory exists but has no skills", () => {
+      const emptyTmp = mkdtempSync(join(tmpdir(), "skilled-dist-noskills-"));
+      mkdirSync(join(emptyTmp, ".agents", "skills"), { recursive: true });
+      const warnSpy = vi.spyOn(log, "warn");
+      try {
+        distributeAllSkills(emptyTmp, ["claude-code"] as AgentType[]);
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining("No skills found in .agents/skills"),
+        );
+      } finally {
+        warnSpy.mockRestore();
+        rmSync(emptyTmp, { recursive: true, force: true });
+      }
+    });
+
+    it("logs an info message when all detected agents are universal (no symlinks needed)", () => {
+      const infoSpy = vi.spyOn(log, "info");
+      try {
+        // "cursor" is a universal agent — uses .agents/skills directly
+        distributeAllSkills(tmp, ["cursor"] as AgentType[]);
+        expect(infoSpy).toHaveBeenCalledWith(
+          expect.stringContaining("All detected agents"),
+        );
+      } finally {
+        infoSpy.mockRestore();
+      }
+    });
+
+    it("does not warn about missing symlinks when all agents are universal", () => {
+      const warnSpy = vi.spyOn(log, "warn");
+      try {
+        distributeAllSkills(tmp, ["cursor", "copilot"] as AgentType[]);
+        expect(warnSpy).not.toHaveBeenCalled();
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
+    it("warns about no agent dirs when agent list is empty and no custom dirs", () => {
+      const warnSpy = vi.spyOn(log, "warn");
+      try {
+        distributeAllSkills(tmp, [] as AgentType[]);
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining("No agent directories to distribute to"),
+        );
+      } finally {
+        warnSpy.mockRestore();
+      }
     });
   });
 
