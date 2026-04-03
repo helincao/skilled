@@ -6,25 +6,53 @@ export const CANONICAL_SKILLS_DIR = ".agents/skills";
 
 /** Agent types whose skillsDir matches the canonical directory (no symlink needed) */
 export const UNIVERSAL_AGENTS: readonly AgentType[] = [
-  "amp", "cline", "codex", "copilot", "cursor", "gemini-cli", "warp",
+  "amp", "antigravity", "cline", "codex", "copilot", "cursor",
+  "deepagents", "firebender", "gemini-cli", "kimi-cli", "opencode",
+  "replit", "warp",
 ] as const;
 
 export type AgentType =
+  | "adal"
   | "amp"
+  | "antigravity"
   | "augment"
+  | "bob"
   | "claude-code"
   | "cline"
+  | "codebuddy"
   | "codex"
+  | "command-code"
   | "continue"
+  | "cortex"
   | "copilot"
+  | "crush"
   | "cursor"
+  | "deepagents"
+  | "droid"
+  | "firebender"
   | "gemini-cli"
   | "goose"
+  | "iflow-cli"
+  | "junie"
   | "kilo"
+  | "kimi-cli"
   | "kiro-cli"
+  | "kode"
+  | "mcpjam"
+  | "mistral-vibe"
+  | "mux"
+  | "neovate"
+  | "openclaw"
+  | "opencode"
   | "openhands"
+  | "pi"
+  | "pochi"
+  | "qoder"
+  | "qwen-code"
+  | "replit"
   | "roo"
   | "trae"
+  | "trae-cn"
   | "warp"
   | "windsurf"
   | "zencoder";
@@ -37,15 +65,30 @@ export interface AgentSystem {
 }
 
 export const AGENT_SYSTEMS: Record<AgentType, AgentSystem> = {
+  adal: {
+    name: "AdaL",
+    type: "adal",
+    skillsDir: ".adal/skills",
+  },
   amp: {
     name: "Amp",
     type: "amp",
+    skillsDir: ".agents/skills",
+  },
+  antigravity: {
+    name: "Antigravity",
+    type: "antigravity",
     skillsDir: ".agents/skills",
   },
   augment: {
     name: "Augment",
     type: "augment",
     skillsDir: ".augment/skills",
+  },
+  bob: {
+    name: "IBM Bob",
+    type: "bob",
+    skillsDir: ".bob/skills",
   },
   "claude-code": {
     name: "Claude Code",
@@ -57,10 +100,20 @@ export const AGENT_SYSTEMS: Record<AgentType, AgentSystem> = {
     type: "cline",
     skillsDir: ".agents/skills",
   },
+  codebuddy: {
+    name: "CodeBuddy",
+    type: "codebuddy",
+    skillsDir: ".codebuddy/skills",
+  },
   codex: {
     name: "Codex",
     type: "codex",
     skillsDir: ".agents/skills",
+  },
+  "command-code": {
+    name: "Command Code",
+    type: "command-code",
+    skillsDir: ".commandcode/skills",
   },
   continue: {
     name: "Continue",
@@ -72,9 +125,34 @@ export const AGENT_SYSTEMS: Record<AgentType, AgentSystem> = {
     type: "copilot",
     skillsDir: ".agents/skills",
   },
+  cortex: {
+    name: "Cortex Code",
+    type: "cortex",
+    skillsDir: ".cortex/skills",
+  },
+  crush: {
+    name: "Crush",
+    type: "crush",
+    skillsDir: ".crush/skills",
+  },
   cursor: {
     name: "Cursor",
     type: "cursor",
+    skillsDir: ".agents/skills",
+  },
+  deepagents: {
+    name: "Deep Agents",
+    type: "deepagents",
+    skillsDir: ".agents/skills",
+  },
+  droid: {
+    name: "Droid",
+    type: "droid",
+    skillsDir: ".factory/skills",
+  },
+  firebender: {
+    name: "Firebender",
+    type: "firebender",
     skillsDir: ".agents/skills",
   },
   "gemini-cli": {
@@ -87,20 +165,95 @@ export const AGENT_SYSTEMS: Record<AgentType, AgentSystem> = {
     type: "goose",
     skillsDir: ".goose/skills",
   },
+  "iflow-cli": {
+    name: "iFlow CLI",
+    type: "iflow-cli",
+    skillsDir: ".iflow/skills",
+  },
+  junie: {
+    name: "Junie",
+    type: "junie",
+    skillsDir: ".junie/skills",
+  },
   kilo: {
     name: "Kilo Code",
     type: "kilo",
     skillsDir: ".kilocode/skills",
+  },
+  "kimi-cli": {
+    name: "Kimi Code CLI",
+    type: "kimi-cli",
+    skillsDir: ".agents/skills",
   },
   "kiro-cli": {
     name: "Kiro",
     type: "kiro-cli",
     skillsDir: ".kiro/skills",
   },
+  kode: {
+    name: "Kode",
+    type: "kode",
+    skillsDir: ".kode/skills",
+  },
+  mcpjam: {
+    name: "MCPJam",
+    type: "mcpjam",
+    skillsDir: ".mcpjam/skills",
+  },
+  "mistral-vibe": {
+    name: "Mistral Vibe",
+    type: "mistral-vibe",
+    skillsDir: ".vibe/skills",
+  },
+  mux: {
+    name: "Mux",
+    type: "mux",
+    skillsDir: ".mux/skills",
+  },
+  neovate: {
+    name: "Neovate",
+    type: "neovate",
+    skillsDir: ".neovate/skills",
+  },
+  openclaw: {
+    name: "OpenClaw",
+    type: "openclaw",
+    skillsDir: "skills",
+  },
+  opencode: {
+    name: "OpenCode",
+    type: "opencode",
+    skillsDir: ".agents/skills",
+  },
   openhands: {
     name: "OpenHands",
     type: "openhands",
     skillsDir: ".openhands/skills",
+  },
+  pi: {
+    name: "Pi",
+    type: "pi",
+    skillsDir: ".pi/skills",
+  },
+  pochi: {
+    name: "Pochi",
+    type: "pochi",
+    skillsDir: ".pochi/skills",
+  },
+  qoder: {
+    name: "Qoder",
+    type: "qoder",
+    skillsDir: ".qoder/skills",
+  },
+  "qwen-code": {
+    name: "Qwen Code",
+    type: "qwen-code",
+    skillsDir: ".qwen/skills",
+  },
+  replit: {
+    name: "Replit",
+    type: "replit",
+    skillsDir: ".agents/skills",
   },
   roo: {
     name: "Roo Code",
@@ -110,6 +263,11 @@ export const AGENT_SYSTEMS: Record<AgentType, AgentSystem> = {
   trae: {
     name: "Trae",
     type: "trae",
+    skillsDir: ".trae/skills",
+  },
+  "trae-cn": {
+    name: "Trae CN",
+    type: "trae-cn",
     skillsDir: ".trae/skills",
   },
   warp: {
@@ -135,12 +293,16 @@ export function detectAgents(root: string): AgentType[] {
 
   // Agents using the universal .agents/ directory
   if (existsSync(join(root, ".agents"))) {
-    detected.push("amp", "cline", "codex", "copilot", "cursor", "gemini-cli", "warp");
+    detected.push(
+      "amp", "antigravity", "cline", "codex", "copilot", "cursor",
+      "deepagents", "firebender", "gemini-cli", "kimi-cli", "opencode",
+      "replit", "warp",
+    );
   }
 
-  // Claude Code: .claude/ directory
-  if (existsSync(join(root, ".claude"))) {
-    detected.push("claude-code");
+  // AdaL: .adal/ directory
+  if (existsSync(join(root, ".adal"))) {
+    detected.push("adal");
   }
 
   // Augment: .augment/ directory
@@ -148,9 +310,39 @@ export function detectAgents(root: string): AgentType[] {
     detected.push("augment");
   }
 
+  // IBM Bob: .bob/ directory
+  if (existsSync(join(root, ".bob"))) {
+    detected.push("bob");
+  }
+
+  // Claude Code: .claude/ directory
+  if (existsSync(join(root, ".claude"))) {
+    detected.push("claude-code");
+  }
+
+  // CodeBuddy: .codebuddy/ directory
+  if (existsSync(join(root, ".codebuddy"))) {
+    detected.push("codebuddy");
+  }
+
+  // Command Code: .commandcode/ directory
+  if (existsSync(join(root, ".commandcode"))) {
+    detected.push("command-code");
+  }
+
   // Continue: .continue/ directory
   if (existsSync(join(root, ".continue"))) {
     detected.push("continue");
+  }
+
+  // Cortex Code: .cortex/ directory
+  if (existsSync(join(root, ".cortex"))) {
+    detected.push("cortex");
+  }
+
+  // Crush: .crush/ directory
+  if (existsSync(join(root, ".crush"))) {
+    detected.push("crush");
   }
 
   // Cursor: also detect via .cursor/ or .cursorrules (even without .agents/)
@@ -162,9 +354,24 @@ export function detectAgents(root: string): AgentType[] {
     detected.push("cursor");
   }
 
+  // Droid: .factory/ directory
+  if (existsSync(join(root, ".factory"))) {
+    detected.push("droid");
+  }
+
   // Goose: .goose/ directory
   if (existsSync(join(root, ".goose"))) {
     detected.push("goose");
+  }
+
+  // iFlow CLI: .iflow/ directory
+  if (existsSync(join(root, ".iflow"))) {
+    detected.push("iflow-cli");
+  }
+
+  // Junie: .junie/ directory
+  if (existsSync(join(root, ".junie"))) {
+    detected.push("junie");
   }
 
   // Kilo Code: .kilocode/ directory
@@ -177,9 +384,71 @@ export function detectAgents(root: string): AgentType[] {
     detected.push("kiro-cli");
   }
 
+  // Kode: .kode/ directory
+  if (existsSync(join(root, ".kode"))) {
+    detected.push("kode");
+  }
+
+  // MCPJam: .mcpjam/ directory
+  if (existsSync(join(root, ".mcpjam"))) {
+    detected.push("mcpjam");
+  }
+
+  // Mistral Vibe: .vibe/ directory
+  if (existsSync(join(root, ".vibe"))) {
+    detected.push("mistral-vibe");
+  }
+
+  // Mux: .mux/ directory
+  if (existsSync(join(root, ".mux"))) {
+    detected.push("mux");
+  }
+
+  // Neovate: .neovate/ directory
+  if (existsSync(join(root, ".neovate"))) {
+    detected.push("neovate");
+  }
+
+  // OpenClaw: .openclaw/, .clawdbot/, or .moltbot/ directory
+  if (
+    existsSync(join(root, ".openclaw")) ||
+    existsSync(join(root, ".clawdbot")) ||
+    existsSync(join(root, ".moltbot"))
+  ) {
+    detected.push("openclaw");
+  }
+
   // OpenHands: .openhands/ directory
   if (existsSync(join(root, ".openhands"))) {
     detected.push("openhands");
+  }
+
+  // Pi: .pi/ directory
+  if (existsSync(join(root, ".pi"))) {
+    detected.push("pi");
+  }
+
+  // Pochi: .pochi/ directory
+  if (existsSync(join(root, ".pochi"))) {
+    detected.push("pochi");
+  }
+
+  // Qoder: .qoder/ directory
+  if (existsSync(join(root, ".qoder"))) {
+    detected.push("qoder");
+  }
+
+  // Qwen Code: .qwen/ directory
+  if (existsSync(join(root, ".qwen"))) {
+    detected.push("qwen-code");
+  }
+
+  // Replit: also detect via .replit file (even without .agents/)
+  if (
+    !detected.includes("replit") &&
+    existsSync(join(root, ".replit"))
+  ) {
+    detected.push("replit");
   }
 
   // Roo Code: .roo/ directory
@@ -187,9 +456,12 @@ export function detectAgents(root: string): AgentType[] {
     detected.push("roo");
   }
 
-  // Trae: .trae/ directory
+  // Trae: .trae/ directory (also covers Trae CN)
   if (existsSync(join(root, ".trae"))) {
-    detected.push("trae");
+    if (!detected.includes("trae")) {
+      detected.push("trae");
+    }
+    detected.push("trae-cn");
   }
 
   // Windsurf: .windsurf/ directory or .windsurfrules

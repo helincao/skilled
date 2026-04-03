@@ -1,6 +1,6 @@
 # Skilled
 
-Skill lifecycle manager for AI coding agents. Install, sync, and upstream skills across 18+ agents — Claude Code, Cursor, Copilot, Windsurf, Cline, Roo, Gemini CLI, and more — from any GitHub repo.
+Skill lifecycle manager for AI coding agents. Install, sync, and upstream skills across 40+ agents — Claude Code, Cursor, Copilot, Windsurf, Cline, Gemini CLI, and more — from any GitHub repo.
 
 ## The Problem
 
@@ -41,8 +41,6 @@ install / sync   │
   then keep local, sync, or upstream
 ```
 
-`search` is read-only. `check` helps you decide what to do next: leave a local change alone, sync remote updates, or upstream a skill you want to contribute back. `install` and `sync` bring shared skills into your project, while `upstream` sends selected local skill improvements back to the shared skill repo as a pull request.
-
 ## Features
 
 - **Install** skills from any GitHub repo — specific skills, entire repos, or restore from lockfile
@@ -51,7 +49,7 @@ install / sync   │
 - **Upstream** local improvements back to the source via pull request
 - **Check** for drift — local modifications, remote updates, or conflicts
 - **Auto-detect conflicts** on `git push` via a pre-push hook
-- **Multi-agent** — supports 18+ coding agents out of the box
+- **Multi-agent** — supports 40+ coding agents out of the box
 - **Structured output** via `--json` for scripting and agent consumption
 
 ## Install
@@ -96,28 +94,58 @@ skilled hooks install
 
 ## Multi-Agent Support
 
-Skilled supports 18+ coding agents. Skills are installed into your project's `skills/` directory — your instruction files (CLAUDE.md, .cursorrules, etc.) are yours to manage.
+Skilled supports 40+ coding agents. All skills are stored once in `.agents/skills/` — the canonical directory and single source of truth. For agents that read from a different directory (e.g. `.claude/skills`, `.windsurf/skills`), Skilled creates relative symlinks pointing back to the canonical copy. No duplication, no drift between agents.
 
-| Agent | Skills Dir | Detection |
-|-------|-----------|-----------|
-| Amp | `.agents/skills` | `.agents/` exists |
-| Augment | `.augment/skills` | `.augment/` exists |
-| Claude Code | `.claude/skills` | `.claude/` exists |
-| Cline | `.agents/skills` | `.agents/` exists |
-| Codex | `.agents/skills` | `.agents/` exists |
-| Continue | `.continue/skills` | `.continue/` exists |
-| GitHub Copilot | `.agents/skills` | `.agents/` exists |
-| Cursor | `.agents/skills` | `.cursor/`, `.cursorrules`, or `.agents/` exists |
-| Gemini CLI | `.agents/skills` | `.agents/` exists |
-| Goose | `.goose/skills` | `.goose/` exists |
-| Kilo Code | `.kilocode/skills` | `.kilocode/` exists |
-| Kiro | `.kiro/skills` | `.kiro/` exists |
-| OpenHands | `.openhands/skills` | `.openhands/` exists |
-| Roo Code | `.roo/skills` | `.roo/` exists |
-| Trae | `.trae/skills` | `.trae/` exists |
-| Warp | `.agents/skills` | `.agents/` exists |
-| Windsurf | `.windsurf/skills` | `.windsurf/` or `.windsurfrules` exists |
-| Zencoder | `.zencoder/skills` | `.zencoder/` exists |
+Your instruction files (CLAUDE.md, .cursorrules, etc.) are yours to manage.
+
+| Agent | Skills Dir | Symlink | Detection |
+|-------|-----------|---------|-----------|
+| AdaL | `.adal/skills` | yes | `.adal/` exists |
+| Amp | `.agents/skills` | — | `.agents/` exists |
+| Antigravity | `.agents/skills` | — | `.agents/` exists |
+| Augment | `.augment/skills` | yes | `.augment/` exists |
+| IBM Bob | `.bob/skills` | yes | `.bob/` exists |
+| Claude Code | `.claude/skills` | yes | `.claude/` exists |
+| Cline | `.agents/skills` | — | `.agents/` exists |
+| CodeBuddy | `.codebuddy/skills` | yes | `.codebuddy/` exists |
+| Codex | `.agents/skills` | — | `.agents/` exists |
+| Command Code | `.commandcode/skills` | yes | `.commandcode/` exists |
+| Continue | `.continue/skills` | yes | `.continue/` exists |
+| GitHub Copilot | `.agents/skills` | — | `.agents/` exists |
+| Cortex Code | `.cortex/skills` | yes | `.cortex/` exists |
+| Crush | `.crush/skills` | yes | `.crush/` exists |
+| Cursor | `.agents/skills` | — | `.cursor/`, `.cursorrules`, or `.agents/` exists |
+| Deep Agents | `.agents/skills` | — | `.agents/` exists |
+| Droid | `.factory/skills` | yes | `.factory/` exists |
+| Firebender | `.agents/skills` | — | `.agents/` exists |
+| Gemini CLI | `.agents/skills` | — | `.agents/` exists |
+| Goose | `.goose/skills` | yes | `.goose/` exists |
+| iFlow CLI | `.iflow/skills` | yes | `.iflow/` exists |
+| Junie | `.junie/skills` | yes | `.junie/` exists |
+| Kilo Code | `.kilocode/skills` | yes | `.kilocode/` exists |
+| Kimi Code CLI | `.agents/skills` | — | `.agents/` exists |
+| Kiro | `.kiro/skills` | yes | `.kiro/` exists |
+| Kode | `.kode/skills` | yes | `.kode/` exists |
+| MCPJam | `.mcpjam/skills` | yes | `.mcpjam/` exists |
+| Mistral Vibe | `.vibe/skills` | yes | `.vibe/` exists |
+| Mux | `.mux/skills` | yes | `.mux/` exists |
+| Neovate | `.neovate/skills` | yes | `.neovate/` exists |
+| OpenClaw | `skills` | yes | `.openclaw/`, `.clawdbot/`, or `.moltbot/` exists |
+| OpenCode | `.agents/skills` | — | `.agents/` exists |
+| OpenHands | `.openhands/skills` | yes | `.openhands/` exists |
+| Pi | `.pi/skills` | yes | `.pi/` exists |
+| Pochi | `.pochi/skills` | yes | `.pochi/` exists |
+| Qoder | `.qoder/skills` | yes | `.qoder/` exists |
+| Qwen Code | `.qwen/skills` | yes | `.qwen/` exists |
+| Replit | `.agents/skills` | — | `.agents/` or `.replit` exists |
+| Roo Code | `.roo/skills` | yes | `.roo/` exists |
+| Trae | `.trae/skills` | yes | `.trae/` exists |
+| Trae CN | `.trae/skills` | yes | `.trae/` exists |
+| Warp | `.agents/skills` | — | `.agents/` exists |
+| Windsurf | `.windsurf/skills` | yes | `.windsurf/` or `.windsurfrules` exists |
+| Zencoder | `.zencoder/skills` | yes | `.zencoder/` exists |
+
+Agents marked with **—** read directly from the canonical `.agents/skills/` directory. Agents marked with **yes** get symlinks created automatically during install/sync.
 
 To target specific agents:
 
