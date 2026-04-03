@@ -30,6 +30,8 @@ export interface SkillEntry {
 export interface Lockfile {
   version: 1;
   skills: Record<string, SkillEntry>;
+  /** User-configured additional directories to symlink skills into */
+  customDirs?: string[];
 }
 
 export function readLockfile(root: string): Lockfile {

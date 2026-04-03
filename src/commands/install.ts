@@ -16,8 +16,8 @@ import {
   detectAgents,
   resolveAgentTypes,
 } from "../core/agents.js";
-import { updateAgentInstructions } from "../core/instructions.js";
 import { sanitizeName, isPathSafe } from "../utils/sanitize.js";
+import { distributeSkill, getCustomDirs } from "../core/distribute.js";
 import type { ResolvedRepo } from "../core/resolver.js";
 
 export interface InstallOptions {
@@ -99,6 +99,9 @@ async function installFromClone(
       agents: agents.length > 0 ? agents : undefined,
     });
 
+    // Distribute to agent-specific directories via symlinks
+    distributeSkill(root, safeName, agents, getCustomDirs(root));
+
     log.success(`Installed ${safeName} (${clone.headSha.slice(0, 7)})`);
   }
 }
@@ -141,9 +144,6 @@ export async function install(
 
     await installFromClone(resolved, clone, root, skillNames, agents, opts);
 
-    if (agents.length > 0) {
-      updateAgentInstructions(root, agents);
-    }
   } finally {
     clone.cleanup();
     releaseLock();
@@ -202,9 +202,6 @@ export async function installFromLockfile(
       }
     }
 
-    if (agents.length > 0) {
-      updateAgentInstructions(root, agents);
-    }
   } finally {
     releaseLock();
   }

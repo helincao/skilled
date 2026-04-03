@@ -7,12 +7,14 @@ import { fetchTreeSha } from "../core/github.js";
 import { hashDirectory } from "../core/hash.js";
 import { skillsDir } from "../utils/config.js";
 import { log } from "../utils/logger.js";
-import { detectAgents } from "../core/agents.js";
-import { updateAgentInstructions } from "../core/instructions.js";
+
 import { sanitizeName, isPathSafe } from "../utils/sanitize.js";
+import { distributeSkill, getCustomDirs } from "../core/distribute.js";
+import { type AgentType, detectAgents, resolveAgentTypes } from "../core/agents.js";
 
 export interface SyncOptions {
   force?: boolean;
+  agent?: string[];
 }
 
 export async function sync(
@@ -29,6 +31,10 @@ export async function sync(
     log.info("No tracked skills to sync.");
     return;
   }
+
+  const agents: AgentType[] = opts.agent
+    ? resolveAgentTypes(opts.agent)
+    : detectAgents(root);
 
   const releaseLock = acquireLock(root);
 
@@ -97,6 +103,9 @@ export async function sync(
             treeSha: treeSha ?? entry.treeSha,
           });
 
+          // Re-distribute symlinks after sync
+          distributeSkill(root, entry.name, agents, getCustomDirs(root));
+
           log.success(
             `Synced ${entry.name} → ${clone.headSha.slice(0, 7)}`,
           );
@@ -106,11 +115,6 @@ export async function sync(
       }
     }
 
-    // Regenerate agent instruction files
-    const agents = detectAgents(root);
-    if (agents.length > 0) {
-      updateAgentInstructions(root, agents);
-    }
   } finally {
     releaseLock();
   }

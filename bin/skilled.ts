@@ -9,6 +9,9 @@ import { search } from "../src/commands/search.js";
 import { remove } from "../src/commands/remove.js";
 import { installHook } from "../src/hooks/pre-push.js";
 import { log } from "../src/utils/logger.js";
+import { distributeAllSkills, getCustomDirs } from "../src/core/distribute.js";
+import { readLockfile, writeLockfile } from "../src/core/manifest.js";
+import { detectAgents, resolveAgentTypes } from "../src/core/agents.js";
 
 const program = new Command();
 
@@ -116,6 +119,10 @@ program
   .command("sync [skill]")
   .description("Pull latest skill versions from remote")
   .option("-f, --force", "Overwrite local modifications")
+  .option(
+    "-a, --agent <types...>",
+    "Target agent systems. Auto-detects if omitted.",
+  )
   .action(async (skillName: string | undefined, opts) => {
     try {
       const root = findProjectRoot();
@@ -152,6 +159,87 @@ hooks
     try {
       const root = findProjectRoot();
       installHook(root);
+    } catch (err: unknown) {
+      log.error((err as Error).message);
+      process.exit(1);
+    }
+  });
+
+// ── config ──────────────────────────────────────────────
+const config = program
+  .command("config")
+  .description("Manage skilled configuration");
+
+config
+  .command("add-dir <path>")
+  .description("Add a custom skills directory (relative to project root)")
+  .action(async (dirPath: string) => {
+    try {
+      const root = findProjectRoot();
+      const lockfile = readLockfile(root);
+      lockfile.customDirs = lockfile.customDirs ?? [];
+      if (!lockfile.customDirs.includes(dirPath)) {
+        lockfile.customDirs.push(dirPath);
+      }
+      writeLockfile(root, lockfile);
+      log.success(`Added custom directory: ${dirPath}`);
+    } catch (err: unknown) {
+      log.error((err as Error).message);
+      process.exit(1);
+    }
+  });
+
+config
+  .command("remove-dir <path>")
+  .description("Remove a custom skills directory")
+  .action(async (dirPath: string) => {
+    try {
+      const root = findProjectRoot();
+      const lockfile = readLockfile(root);
+      lockfile.customDirs = (lockfile.customDirs ?? []).filter((d) => d !== dirPath);
+      if (lockfile.customDirs.length === 0) delete lockfile.customDirs;
+      writeLockfile(root, lockfile);
+      log.success(`Removed custom directory: ${dirPath}`);
+    } catch (err: unknown) {
+      log.error((err as Error).message);
+      process.exit(1);
+    }
+  });
+
+config
+  .command("show")
+  .description("Show current configuration")
+  .action(async () => {
+    try {
+      const root = findProjectRoot();
+      const lockfile = readLockfile(root);
+      const agents = detectAgents(root);
+      console.log(JSON.stringify({
+        agents,
+        customDirs: lockfile.customDirs ?? [],
+      }, null, 2));
+    } catch (err: unknown) {
+      log.error((err as Error).message);
+      process.exit(1);
+    }
+  });
+
+// ── distribute ──────────────────────────────────────────
+program
+  .command("distribute")
+  .description("Re-create symlinks from canonical to all agent directories")
+  .option(
+    "-a, --agent <types...>",
+    "Target agent systems. Auto-detects if omitted.",
+  )
+  .action(async (opts) => {
+    try {
+      const root = findProjectRoot();
+      const agents = opts.agent
+        ? resolveAgentTypes(opts.agent)
+        : detectAgents(root);
+      distributeAllSkills(root, agents, getCustomDirs(root));
+      log.success("Symlinks distributed.");
     } catch (err: unknown) {
       log.error((err as Error).message);
       process.exit(1);

@@ -9,6 +9,17 @@ import {
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { writeLockfile, readLockfile, type Lockfile, type SkillEntry } from "../../src/core/manifest.js";
+
+vi.mock("../../src/core/agents.js", () => ({
+  detectAgents: vi.fn().mockReturnValue([]),
+  resolveAgentTypes: vi.fn().mockReturnValue([]),
+}));
+
+vi.mock("../../src/core/distribute.js", () => ({
+  removeSkillLinks: vi.fn(),
+  getCustomDirs: vi.fn().mockReturnValue([]),
+}));
+
 import { remove } from "../../src/commands/remove.js";
 
 function makeEntry(overrides: Partial<SkillEntry> = {}): SkillEntry {
@@ -29,7 +40,7 @@ describe("remove command", () => {
 
   beforeEach(() => {
     tmp = mkdtempSync(join(tmpdir(), "skilled-remove-"));
-    mkdirSync(join(tmp, "skills"), { recursive: true });
+    mkdirSync(join(tmp, ".agents", "skills"), { recursive: true });
     consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
   });
 
@@ -46,7 +57,7 @@ describe("remove command", () => {
   });
 
   it("removes skill directory and lockfile entry", async () => {
-    const skillDir = join(tmp, "skills", "my-skill");
+    const skillDir = join(tmp, ".agents", "skills", "my-skill");
     mkdirSync(skillDir, { recursive: true });
     writeFileSync(join(skillDir, "SKILL.md"), "content");
 

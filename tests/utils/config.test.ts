@@ -41,8 +41,8 @@ describe("config utils", () => {
   });
 
   describe("skillsDir", () => {
-    it("returns skills/ under root", () => {
-      expect(skillsDir("/project")).toBe(join("/project", "skills"));
+    it("returns .agents/skills/ under root", () => {
+      expect(skillsDir("/project")).toBe(join("/project", ".agents", "skills"));
     });
   });
 

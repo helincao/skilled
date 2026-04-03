@@ -33,8 +33,10 @@ vi.mock("../../src/core/agents.js", () => ({
   resolveAgentTypes: vi.fn().mockReturnValue([]),
 }));
 
-vi.mock("../../src/core/instructions.js", () => ({
-  updateAgentInstructions: vi.fn(),
+// Mock distribute — no symlinks in tests
+vi.mock("../../src/core/distribute.js", () => ({
+  distributeSkill: vi.fn(),
+  getCustomDirs: vi.fn().mockReturnValue([]),
 }));
 
 import { shallowClone } from "../../src/core/git.js";
@@ -90,7 +92,7 @@ describe("installFromLockfile", () => {
 
   beforeEach(() => {
     tmp = mkdtempSync(join(tmpdir(), "skilled-install-"));
-    mkdirSync(join(tmp, "skills"), { recursive: true });
+    mkdirSync(join(tmp, ".agents", "skills"), { recursive: true });
     vi.mocked(shallowClone).mockReset();
   });
 
@@ -114,7 +116,7 @@ describe("installFromLockfile", () => {
 
     await installFromLockfile(tmp, {});
 
-    expect(existsSync(join(tmp, "skills", "my-skill", "SKILL.md"))).toBe(true);
+    expect(existsSync(join(tmp, ".agents", "skills", "my-skill", "SKILL.md"))).toBe(true);
     expect(shallowClone).toHaveBeenCalledTimes(1);
   });
 
@@ -137,8 +139,8 @@ describe("installFromLockfile", () => {
 
     await installFromLockfile(tmp, {});
 
-    expect(existsSync(join(tmp, "skills", "skill-a", "SKILL.md"))).toBe(true);
-    expect(existsSync(join(tmp, "skills", "skill-b", "SKILL.md"))).toBe(true);
+    expect(existsSync(join(tmp, ".agents", "skills", "skill-a", "SKILL.md"))).toBe(true);
+    expect(existsSync(join(tmp, ".agents", "skills", "skill-b", "SKILL.md"))).toBe(true);
     // Only one clone for one repo
     expect(shallowClone).toHaveBeenCalledTimes(1);
   });
@@ -176,7 +178,7 @@ describe("installFromLockfile", () => {
 
   it("skips existing skills without --force", async () => {
     // Pre-create the skill directory
-    const existingDir = join(tmp, "skills", "my-skill");
+    const existingDir = join(tmp, ".agents", "skills", "my-skill");
     mkdirSync(existingDir, { recursive: true });
     writeFileSync(join(existingDir, "SKILL.md"), "existing content");
 
@@ -196,7 +198,7 @@ describe("installFromLockfile", () => {
   });
 
   it("overwrites existing skills with --force", async () => {
-    const existingDir = join(tmp, "skills", "my-skill");
+    const existingDir = join(tmp, ".agents", "skills", "my-skill");
     mkdirSync(existingDir, { recursive: true });
     writeFileSync(join(existingDir, "SKILL.md"), "existing content");
 
@@ -246,6 +248,111 @@ describe("installFromLockfile", () => {
     // Should not throw
     await installFromLockfile(tmp, {});
 
-    expect(existsSync(join(tmp, "skills", "deleted-skill"))).toBe(false);
+    expect(existsSync(join(tmp, ".agents", "skills", "deleted-skill"))).toBe(false);
+  });
+});
+
+describe("install (single repo)", () => {
+  let tmp: string;
+
+  beforeEach(() => {
+    tmp = mkdtempSync(join(tmpdir(), "skilled-install-single-"));
+    vi.mocked(shallowClone).mockReset();
+  });
+
+  afterEach(() => {
+    rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it("installs all skills from a repo", async () => {
+    setupCloneMock(tmp, ["build", "test"]);
+    writeLockfile(tmp, { version: 1, skills: {} });
+
+    await install("owner/repo", tmp);
+
+    expect(existsSync(join(tmp, ".agents", "skills", "build", "SKILL.md"))).toBe(true);
+    expect(existsSync(join(tmp, ".agents", "skills", "test", "SKILL.md"))).toBe(true);
+
+    const lockfile = readLockfile(tmp);
+    expect(lockfile.skills["build"]).toBeDefined();
+    expect(lockfile.skills["test"]).toBeDefined();
+  });
+
+  it("installs only the specified skill", async () => {
+    setupCloneMock(tmp, ["build", "test"]);
+    writeLockfile(tmp, { version: 1, skills: {} });
+
+    await install("owner/repo", tmp, { skill: "build" });
+
+    expect(existsSync(join(tmp, ".agents", "skills", "build", "SKILL.md"))).toBe(true);
+    expect(existsSync(join(tmp, ".agents", "skills", "test", "SKILL.md"))).toBe(false);
+  });
+
+  it("throws when specified skill does not exist in remote", async () => {
+    setupCloneMock(tmp, ["build"]);
+    writeLockfile(tmp, { version: 1, skills: {} });
+
+    await expect(
+      install("owner/repo", tmp, { skill: "nonexistent" }),
+    ).rejects.toThrow('Skill "nonexistent" not found');
+  });
+
+  it("refuses to overwrite without --force", async () => {
+    const existingDir = join(tmp, ".agents", "skills", "build");
+    mkdirSync(existingDir, { recursive: true });
+    writeFileSync(join(existingDir, "SKILL.md"), "existing");
+
+    setupCloneMock(tmp, ["build"]);
+    writeLockfile(tmp, { version: 1, skills: {} });
+
+    await install("owner/repo", tmp, { skill: "build" });
+
+    expect(readFileSync(join(existingDir, "SKILL.md"), "utf-8")).toBe(
+      "existing",
+    );
+  });
+
+  it("overwrites with --force", async () => {
+    const existingDir = join(tmp, ".agents", "skills", "build");
+    mkdirSync(existingDir, { recursive: true });
+    writeFileSync(join(existingDir, "SKILL.md"), "existing");
+
+    setupCloneMock(tmp, ["build"]);
+    writeLockfile(tmp, { version: 1, skills: {} });
+
+    await install("owner/repo", tmp, { skill: "build", force: true });
+
+    const content = readFileSync(join(existingDir, "SKILL.md"), "utf-8");
+    expect(content).toContain("Content for build");
+  });
+
+  it("throws when remote has no skills/ directory", async () => {
+    const remoteDir = join(tmp, "_remote");
+    mkdirSync(remoteDir, { recursive: true });
+    // No skills/ dir
+
+    vi.mocked(shallowClone).mockResolvedValue({
+      dir: remoteDir,
+      headSha: FAKE_SHA,
+      cleanup: vi.fn(),
+    });
+    writeLockfile(tmp, { version: 1, skills: {} });
+
+    await expect(install("owner/repo", tmp)).rejects.toThrow(
+      "No skills/ directory found",
+    );
+  });
+
+  it("records agents in lockfile when --agent is specified", async () => {
+    const { resolveAgentTypes } = await import("../../src/core/agents.js");
+    vi.mocked(resolveAgentTypes).mockReturnValue(["claude-code"] as any);
+
+    setupCloneMock(tmp, ["build"]);
+    writeLockfile(tmp, { version: 1, skills: {} });
+
+    await install("owner/repo", tmp, { agent: ["claude-code"] });
+
+    const lockfile = readLockfile(tmp);
+    expect(lockfile.skills["build"].agents).toEqual(["claude-code"]);
   });
 });

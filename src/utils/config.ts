@@ -16,9 +16,11 @@ export function findProjectRoot(from: string = process.cwd()): string {
   return from;
 }
 
+/** Canonical skills directory — single source of truth for all installed skills */
 export function skillsDir(root: string): string {
-  return join(root, "skills");
+  return join(root, ".agents", "skills");
 }
+
 
 export function lockfilePath(root: string): string {
   return join(root, "skills.lock.json");

@@ -3,12 +3,13 @@ import { join } from "node:path";
 import { readLockfile, removeSkillEntry, acquireLock } from "../core/manifest.js";
 import { skillsDir } from "../utils/config.js";
 import { log } from "../utils/logger.js";
+import { removeSkillLinks, getCustomDirs } from "../core/distribute.js";
 import { type AgentType, detectAgents, resolveAgentTypes } from "../core/agents.js";
-import { updateAgentInstructions } from "../core/instructions.js";
 
 export interface RemoveOptions {
   force?: boolean;
   json?: boolean;
+  agent?: string[];
 }
 
 export async function remove(
@@ -25,27 +26,24 @@ export async function remove(
     );
   }
 
+  const agents: AgentType[] = opts.agent
+    ? resolveAgentTypes(opts.agent)
+    : (entry.agents as AgentType[]) ?? detectAgents(root);
+
   const releaseLock = acquireLock(root);
 
   try {
-    const localDir = join(skillsDir(root), skillName);
+    // Remove symlinks from agent-specific directories first
+    removeSkillLinks(root, skillName, agents, getCustomDirs(root));
 
-    // Delete the skill directory
+    // Delete the canonical skill directory
+    const localDir = join(skillsDir(root), skillName);
     if (existsSync(localDir)) {
       rmSync(localDir, { recursive: true, force: true });
     }
 
     // Remove from lockfile
     removeSkillEntry(root, skillName);
-
-    // Regenerate agent instruction files
-    const agents: AgentType[] = entry.agents
-      ? resolveAgentTypes(entry.agents)
-      : detectAgents(root);
-
-    if (agents.length > 0) {
-      updateAgentInstructions(root, agents);
-    }
 
     if (opts.json) {
       console.log(JSON.stringify({ removed: skillName }));

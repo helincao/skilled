@@ -29,7 +29,7 @@ describe("list command", () => {
 
   beforeEach(() => {
     tmp = mkdtempSync(join(tmpdir(), "skilled-list-"));
-    mkdirSync(join(tmp, "skills"), { recursive: true });
+    mkdirSync(join(tmp, ".agents", "skills"), { recursive: true });
     consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
   });
 
@@ -46,7 +46,7 @@ describe("list command", () => {
 
   it("reports clean status when hash matches", async () => {
     // Create skill directory with known content
-    const skillDir = join(tmp, "skills", "my-skill");
+    const skillDir = join(tmp, ".agents", "skills", "my-skill");
     mkdirSync(skillDir, { recursive: true });
     writeFileSync(join(skillDir, "SKILL.md"), "---\nname: my-skill\n---\n");
 
@@ -62,7 +62,7 @@ describe("list command", () => {
   });
 
   it("reports modified status when hash differs", async () => {
-    const skillDir = join(tmp, "skills", "my-skill");
+    const skillDir = join(tmp, ".agents", "skills", "my-skill");
     mkdirSync(skillDir, { recursive: true });
     writeFileSync(join(skillDir, "SKILL.md"), "changed content");
 
@@ -86,13 +86,13 @@ describe("list command", () => {
 
   it("lists multiple skills with mixed statuses", async () => {
     // One clean skill
-    const cleanDir = join(tmp, "skills", "clean-skill");
+    const cleanDir = join(tmp, ".agents", "skills", "clean-skill");
     mkdirSync(cleanDir, { recursive: true });
     writeFileSync(join(cleanDir, "SKILL.md"), "clean");
     const cleanHash = hashDirectory(cleanDir);
 
     // One modified skill
-    const modDir = join(tmp, "skills", "mod-skill");
+    const modDir = join(tmp, ".agents", "skills", "mod-skill");
     mkdirSync(modDir, { recursive: true });
     writeFileSync(join(modDir, "SKILL.md"), "modified");
 
