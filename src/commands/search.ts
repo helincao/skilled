@@ -10,7 +10,7 @@ export interface SearchOptions {
   json?: boolean;
 }
 
-const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", "__pycache__"]);
+const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "__pycache__"]);
 const MAX_DEPTH = 5;
 
 /**

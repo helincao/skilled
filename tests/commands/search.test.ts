@@ -157,6 +157,57 @@ describe("search command", () => {
     expect(output).toEqual([]);
   });
 
+  it("includes a skill named 'build' via fallback recursive search (regression)", async () => {
+    // Regression: "build" was in SKIP_DIRS, so the recursive fallback path would
+    // silently skip any skill directory named "build".
+    const remoteDir = join(tmp, "_remote");
+    // No skills/ dir — forces fallback to findSkillDirs
+    const buildSkillDir = join(remoteDir, "build");
+    mkdirSync(buildSkillDir, { recursive: true });
+    writeFileSync(
+      join(buildSkillDir, "SKILL.md"),
+      "---\nname: build\ndescription: Build the project\n---\n",
+    );
+
+    vi.mocked(shallowClone).mockResolvedValue({
+      dir: remoteDir,
+      headSha: "abc1234567890def",
+      cleanup: vi.fn(),
+    });
+
+    await search("owner/repo", undefined, { json: true });
+
+    const output = JSON.parse(consoleSpy.mock.calls[0][0]);
+    expect(output).toHaveLength(1);
+    expect(output[0].name).toBe("build");
+  });
+
+  it("includes 'build' skill among others via fallback recursive search (regression)", async () => {
+    // Regression: ensure "build" is not omitted when other skills are also present.
+    const remoteDir = join(tmp, "_remote");
+    for (const name of ["build", "deploy", "test"]) {
+      const dir = join(remoteDir, name);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(
+        join(dir, "SKILL.md"),
+        `---\nname: ${name}\ndescription: ${name} skill\n---\n`,
+      );
+    }
+
+    vi.mocked(shallowClone).mockResolvedValue({
+      dir: remoteDir,
+      headSha: "abc1234567890def",
+      cleanup: vi.fn(),
+    });
+
+    await search("owner/repo", undefined, { json: true });
+
+    const output = JSON.parse(consoleSpy.mock.calls[0][0]);
+    const names = output.map((s: { name: string }) => s.name);
+    expect(names).toContain("build");
+    expect(output).toHaveLength(3);
+  });
+
   it("case-insensitive query matching", async () => {
     setupCloneMock(tmp, [
       { name: "Build", description: "Build the project" },

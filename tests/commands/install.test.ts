@@ -231,6 +231,36 @@ describe("installFromLockfile", () => {
     expect(updated.skills["my-skill"].treeSha).toBe("fake-tree-sha");
   });
 
+  it("restores a skill whose lockfile remotePath is not under skills/ (non-standard layout)", async () => {
+    writeLockfile(tmp, {
+      version: 1,
+      skills: {
+        "deploy": makeEntry({
+          name: "deploy",
+          remotePath: "web-builder-skills/deploy",
+        }),
+      },
+    });
+
+    // Remote stores the skill under web-builder-skills/, not skills/
+    const remoteDir = join(tmp, "_remote");
+    const skillDir = join(remoteDir, "web-builder-skills", "deploy");
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(
+      join(skillDir, "SKILL.md"),
+      "---\nname: deploy\ndescription: Deploy skill\n---\nContent for deploy",
+    );
+    vi.mocked(shallowClone).mockResolvedValue({
+      dir: remoteDir,
+      headSha: FAKE_SHA,
+      cleanup: vi.fn(),
+    });
+
+    await installFromLockfile(tmp, {});
+
+    expect(existsSync(join(tmp, ".agents", "skills", "deploy", "SKILL.md"))).toBe(true);
+  });
+
   it("warns and skips when a lockfile skill is missing from remote", async () => {
     writeLockfile(tmp, {
       version: 1,
@@ -326,10 +356,10 @@ describe("install (single repo)", () => {
     expect(content).toContain("Content for build");
   });
 
-  it("throws when remote has no skills/ directory", async () => {
+  it("throws when remote has no skills at all (no skills/ dir, no SKILL.md anywhere)", async () => {
     const remoteDir = join(tmp, "_remote");
     mkdirSync(remoteDir, { recursive: true });
-    // No skills/ dir
+    // No skills/ dir and no SKILL.md files anywhere
 
     vi.mocked(shallowClone).mockResolvedValue({
       dir: remoteDir,
@@ -339,8 +369,130 @@ describe("install (single repo)", () => {
     writeLockfile(tmp, { version: 1, skills: {} });
 
     await expect(install("owner/repo", tmp)).rejects.toThrow(
-      "No skills/ directory found",
+      "No skills found in owner/repo",
     );
+  });
+
+  // ── Regression: non-standard remote layout ───────────────
+
+  it("installs skills from a non-standard subdirectory (no skills/ at root)", async () => {
+    // Simulates repos like helincao/skilled where skills live under web-builder-skills/
+    const remoteDir = join(tmp, "_remote");
+    const nonStandardDir = join(remoteDir, "web-builder-skills", "commit");
+    mkdirSync(nonStandardDir, { recursive: true });
+    writeFileSync(
+      join(nonStandardDir, "SKILL.md"),
+      "---\nname: commit\ndescription: Commit helper\n---\nContent",
+    );
+
+    vi.mocked(shallowClone).mockResolvedValue({
+      dir: remoteDir,
+      headSha: FAKE_SHA,
+      cleanup: vi.fn(),
+    });
+    writeLockfile(tmp, { version: 1, skills: {} });
+
+    await install("owner/repo", tmp);
+
+    expect(
+      existsSync(join(tmp, ".agents", "skills", "commit", "SKILL.md")),
+    ).toBe(true);
+  });
+
+  it("always installs into .agents/skills/ regardless of remote subdirectory layout", async () => {
+    const remoteDir = join(tmp, "_remote");
+    // Skills are nested in non-standard subdirectories
+    // Note: avoid names in SKIP_DIRS ("build", "dist", etc.) — those dirs are not traversed
+    for (const [subdir, skill] of [
+      ["web-builder-skills/deploy", "deploy"],
+      ["tooling/review", "review"],
+    ]) {
+      const d = join(remoteDir, subdir);
+      mkdirSync(d, { recursive: true });
+      writeFileSync(join(d, "SKILL.md"), `---\nname: ${skill}\n---\n`);
+    }
+
+    vi.mocked(shallowClone).mockResolvedValue({
+      dir: remoteDir,
+      headSha: FAKE_SHA,
+      cleanup: vi.fn(),
+    });
+    writeLockfile(tmp, { version: 1, skills: {} });
+
+    await install("owner/repo", tmp);
+
+    // Local layout must always be flat under .agents/skills/
+    expect(existsSync(join(tmp, ".agents", "skills", "deploy", "SKILL.md"))).toBe(true);
+    expect(existsSync(join(tmp, ".agents", "skills", "review", "SKILL.md"))).toBe(true);
+    // Remote subdirectory structure must NOT be replicated locally
+    expect(existsSync(join(tmp, ".agents", "skills", "web-builder-skills"))).toBe(false);
+    expect(existsSync(join(tmp, ".agents", "skills", "tooling"))).toBe(false);
+  });
+
+  it("stores the actual relative remotePath in the lockfile (not hardcoded skills/)", async () => {
+    const remoteDir = join(tmp, "_remote");
+    const skillDir = join(remoteDir, "web-builder-skills", "deploy");
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(join(skillDir, "SKILL.md"), "---\nname: deploy\n---\n");
+
+    vi.mocked(shallowClone).mockResolvedValue({
+      dir: remoteDir,
+      headSha: FAKE_SHA,
+      cleanup: vi.fn(),
+    });
+    writeLockfile(tmp, { version: 1, skills: {} });
+
+    await install("owner/repo", tmp);
+
+    const lockfile = readLockfile(tmp);
+    expect(lockfile.skills["deploy"].remotePath).toBe("web-builder-skills/deploy");
+  });
+
+  it("--skill validation works against non-standard remote layout", async () => {
+    const remoteDir = join(tmp, "_remote");
+    const skillDir = join(remoteDir, "custom-skills", "lint");
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(join(skillDir, "SKILL.md"), "---\nname: lint\n---\n");
+
+    vi.mocked(shallowClone).mockResolvedValue({
+      dir: remoteDir,
+      headSha: FAKE_SHA,
+      cleanup: vi.fn(),
+    });
+    writeLockfile(tmp, { version: 1, skills: {} });
+
+    // Should succeed for an existing skill
+    await install("owner/repo", tmp, { skill: "lint" });
+    expect(existsSync(join(tmp, ".agents", "skills", "lint", "SKILL.md"))).toBe(true);
+
+    // Should fail for a non-existent skill
+    await expect(
+      install("owner/repo", tmp, { skill: "nonexistent" }),
+    ).rejects.toThrow('Skill "nonexistent" not found');
+  });
+
+  it("skips both skills and reports error when two remote subdirs share the same skill name", async () => {
+    const remoteDir = join(tmp, "_remote");
+    for (const subdir of ["group-a/commit", "group-b/commit"]) {
+      const d = join(remoteDir, subdir);
+      mkdirSync(d, { recursive: true });
+      writeFileSync(join(d, "SKILL.md"), `---\nname: commit\n---\n`);
+    }
+
+    vi.mocked(shallowClone).mockResolvedValue({
+      dir: remoteDir,
+      headSha: FAKE_SHA,
+      cleanup: vi.fn(),
+    });
+    writeLockfile(tmp, { version: 1, skills: {} });
+
+    await install("owner/repo", tmp);
+
+    // Neither conflicting skill should be installed
+    expect(existsSync(join(tmp, ".agents", "skills", "commit"))).toBe(false);
+    // Nothing in lockfile either
+    const lockfile = readLockfile(tmp);
+    expect(lockfile.skills["commit"]).toBeUndefined();
   });
 
   it("records agents in lockfile when --agent is specified", async () => {
