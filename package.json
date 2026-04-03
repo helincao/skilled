@@ -1,6 +1,6 @@
 {
   "name": "skilled",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Skill lifecycle manager for AI agent skills — install, sync, upstream, and detect conflicts.",
   "type": "module",
   "bin": {
