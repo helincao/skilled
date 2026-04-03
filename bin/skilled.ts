@@ -1,9 +1,6 @@
 import { Command } from "commander";
-import { createRequire } from "module";
 import { findProjectRoot } from "../src/utils/config.js";
-
-const require = createRequire(import.meta.url);
-const { version } = require("../package.json");
+import { version } from "../package.json";
 import { install } from "../src/commands/install.js";
 import { list } from "../src/commands/list.js";
 import { check } from "../src/commands/check.js";
