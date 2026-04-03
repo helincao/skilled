@@ -25,7 +25,7 @@ program
 program
   .command("install [repo]")
   .description(
-    "Install skills from a remote GitHub repository, or restore all skills from the lockfile when no repo is given",
+    "Install skills from a GitHub repository or local path, or restore all skills from the lockfile when no repo is given",
   )
   .option("-s, --skill <name>", "Install a specific skill only")
   .option("-f, --force", "Overwrite existing local skills")
@@ -33,6 +33,7 @@ program
     "-a, --agent <types...>",
     "Target agent systems (claude-code, cursor, copilot, windsurf, codex). Auto-detects if omitted.",
   )
+  .option("-n, --dry-run", "Preview what would be installed without making changes")
   .action(async (repo: string | undefined, opts) => {
     try {
       const root = findProjectRoot();
@@ -124,6 +125,7 @@ program
     "-a, --agent <types...>",
     "Target agent systems. Auto-detects if omitted.",
   )
+  .option("-n, --dry-run", "Preview what would be synced without making changes")
   .action(async (skillName: string | undefined, opts) => {
     try {
       const root = findProjectRoot();

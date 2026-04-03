@@ -112,13 +112,27 @@ export function acquireLock(root: string): () => void {
     throw err;
   }
 
-  return () => {
+  const release = () => {
     try {
       unlinkSync(path);
     } catch {
       // ignore — lock may have been cleaned up already
     }
+    process.removeListener("exit", release);
+    process.removeListener("SIGINT", onSignal);
+    process.removeListener("SIGTERM", onSignal);
   };
+
+  // Clean up the lock file if the process exits unexpectedly (crash, Ctrl+C, SIGTERM)
+  process.once("exit", release);
+  const onSignal = () => {
+    release();
+    process.exit(1);
+  };
+  process.once("SIGINT", onSignal);
+  process.once("SIGTERM", onSignal);
+
+  return release;
 }
 
 export function getSkillEntry(

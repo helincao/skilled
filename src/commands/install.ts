@@ -1,6 +1,6 @@
 import { existsSync, cpSync, mkdirSync, readdirSync } from "node:fs";
-import { join, relative, basename } from "node:path";
-import { resolveRepo, findSkillsRoot } from "../core/resolver.js";
+import { join, relative, basename, resolve as resolvePath } from "node:path";
+import { resolveRepo, findSkillsRoot, isLocalPath, encodeLocalRepo, decodeLocalRepo } from "../core/resolver.js";
 import { shallowClone, type CloneResult } from "../core/git.js";
 import {
   setSkillEntry,
@@ -25,6 +25,7 @@ export interface InstallOptions {
   skill?: string;
   force?: boolean;
   agent?: string[];
+  dryRun?: boolean;
 }
 
 interface DiscoveryResult {
@@ -86,7 +87,7 @@ async function installFromClone(
   root: string,
   skillNames: string[] | undefined,
   agents: AgentType[],
-  opts: { force?: boolean },
+  opts: { force?: boolean; dryRun?: boolean },
 ): Promise<void> {
   const { skills: availableMap, allConflicted } = discoverSkillDirs(clone.dir);
 
@@ -122,6 +123,12 @@ async function installFromClone(
       continue;
     }
 
+    if (opts.dryRun) {
+      const action = existsSync(dest) ? "overwrite" : "install";
+      log.info(`  [dry-run] Would ${action} ${safeName} from ${resolved.slug} (${clone.headSha.slice(0, 7)})`);
+      continue;
+    }
+
     cpSync(src, dest, { recursive: true });
 
     const contentHash = hashDirectory(dest);
@@ -151,11 +158,108 @@ async function installFromClone(
   }
 }
 
+/**
+ * Install skills from a local filesystem path. Skips git clone entirely,
+ * making it suitable for restricted environments or offline testing.
+ */
+async function installFromLocalPath(
+  localRef: string,
+  root: string,
+  opts: InstallOptions,
+): Promise<void> {
+  const absPath = resolvePath(localRef);
+
+  if (!existsSync(absPath)) {
+    throw new Error(`Local path not found: ${absPath}`);
+  }
+
+  const agents: AgentType[] = opts.agent
+    ? resolveAgentTypes(opts.agent)
+    : detectAgents(root);
+
+  mkdirSync(skillsDir(root), { recursive: true });
+
+  const { skills: availableMap, allConflicted } = discoverSkillDirs(absPath);
+
+  if (availableMap.size === 0 && !allConflicted) {
+    throw new Error(`No skills found in ${absPath}.`);
+  }
+
+  const available = Array.from(availableMap.keys());
+  const skillNames = opts.skill ? [opts.skill] : available;
+
+  if (opts.skill && !available.includes(opts.skill)) {
+    throw new Error(
+      `Skill "${opts.skill}" not found in ${absPath}. Available: ${available.join(", ")}`,
+    );
+  }
+
+  // Encode the path for storage in the lockfile
+  const repoKey = encodeLocalRepo(absPath);
+
+  for (const name of skillNames) {
+    if (!available.includes(name)) {
+      log.warn(`Skill "${name}" not found at ${absPath}. Skipping.`);
+      continue;
+    }
+
+    const safeName = sanitizeName(name);
+    const localSkillsPath = skillsDir(root);
+    if (!isPathSafe(localSkillsPath, safeName)) {
+      log.warn(`Skipping "${name}" — unsafe path detected.`);
+      continue;
+    }
+
+    const src = availableMap.get(name)!;
+    const dest = join(localSkillsPath, safeName);
+
+    if (existsSync(dest) && !opts.force) {
+      log.warn(`Skill "${safeName}" already exists locally. Use --force to overwrite.`);
+      continue;
+    }
+
+    if (opts.dryRun) {
+      const action = existsSync(dest) ? "overwrite" : "install";
+      log.info(`  [dry-run] Would ${action} ${safeName} from ${absPath}`);
+      continue;
+    }
+
+    cpSync(src, dest, { recursive: true });
+
+    const contentHash = hashDirectory(dest);
+    const remotePath = relative(absPath, src);
+
+    setSkillEntry(root, {
+      name: safeName,
+      repo: repoKey,
+      remotePath,
+      commitSha: "",
+      syncedAt: new Date().toISOString(),
+      installedHash: contentHash,
+      agents: agents.length > 0 ? agents : undefined,
+    });
+
+    distributeSkill(root, safeName, agents, getCustomDirs(root));
+
+    log.success(`Installed ${safeName} (local)`);
+  }
+}
+
 export async function install(
   repoRef: string,
   root: string,
   opts: InstallOptions = {},
 ): Promise<void> {
+  if (isLocalPath(repoRef)) {
+    const releaseLock = acquireLock(root);
+    try {
+      await installFromLocalPath(repoRef, root, opts);
+    } finally {
+      releaseLock();
+    }
+    return;
+  }
+
   const resolved = resolveRepo(repoRef);
   const releaseLock = acquireLock(root);
 
@@ -228,6 +332,41 @@ export async function installFromLockfile(
     mkdirSync(skillsDir(root), { recursive: true });
 
     for (const [repo, skills] of byRepo) {
+      const localRepoPath = decodeLocalRepo(repo);
+
+      if (localRepoPath) {
+        log.step(`Restoring from local path ${localRepoPath}...`);
+        const skillNames = skills.map((s) => s.name);
+        for (const name of skillNames) {
+          const src = join(localRepoPath, skills.find((s) => s.name === name)!.remotePath);
+          const safeName = sanitizeName(name);
+          const dest = join(skillsDir(root), safeName);
+
+          if (!existsSync(src)) {
+            log.warn(`Skill "${name}" no longer exists at ${localRepoPath}`);
+            continue;
+          }
+
+          if (existsSync(dest) && !opts.force) {
+            log.warn(`Skill "${safeName}" already exists locally. Use --force to overwrite.`);
+            continue;
+          }
+
+          if (opts.dryRun) {
+            log.info(`  [dry-run] Would restore ${safeName} from ${localRepoPath}`);
+            continue;
+          }
+
+          cpSync(src, dest, { recursive: true });
+          const contentHash = hashDirectory(dest);
+          const entry = skills.find((s) => s.name === name)!;
+          setSkillEntry(root, { ...entry, installedHash: contentHash, syncedAt: new Date().toISOString() });
+          distributeSkill(root, safeName, agents, getCustomDirs(root));
+          log.success(`Restored ${safeName} (local)`);
+        }
+        continue;
+      }
+
       const resolved = resolveRepo(repo);
       log.step(`Cloning ${resolved.slug}...`);
       const clone = await shallowClone(resolved.cloneUrl);
