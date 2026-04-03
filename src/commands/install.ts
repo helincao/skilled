@@ -19,32 +19,12 @@ import {
 import { sanitizeName, isPathSafe } from "../utils/sanitize.js";
 import { distributeSkill, getCustomDirs } from "../core/distribute.js";
 import type { ResolvedRepo } from "../core/resolver.js";
+import { findSkillDirs } from "../core/skill-finder.js";
 
 export interface InstallOptions {
   skill?: string;
   force?: boolean;
   agent?: string[];
-}
-
-const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", "__pycache__"]);
-const MAX_DEPTH = 5;
-
-/** Recursively find directories containing a SKILL.md file. */
-function findSkillDirs(dir: string, depth = 0): string[] {
-  if (depth > MAX_DEPTH) return [];
-  try {
-    const entries = readdirSync(dir, { withFileTypes: true });
-    const results: string[] = [];
-    if (existsSync(join(dir, "SKILL.md"))) results.push(dir);
-    for (const entry of entries) {
-      if (entry.isDirectory() && !SKIP_DIRS.has(entry.name)) {
-        results.push(...findSkillDirs(join(dir, entry.name), depth + 1));
-      }
-    }
-    return results;
-  } catch {
-    return [];
-  }
 }
 
 interface DiscoveryResult {

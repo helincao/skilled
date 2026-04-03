@@ -5,41 +5,10 @@ import { resolveRepo, findSkillsRoot } from "../core/resolver.js";
 import { shallowClone } from "../core/git.js";
 import { parseSkillMeta, type SkillMeta } from "../core/skill-parser.js";
 import { log } from "../utils/logger.js";
+import { findSkillDirs } from "../core/skill-finder.js";
 
 export interface SearchOptions {
   json?: boolean;
-}
-
-const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "__pycache__"]);
-const MAX_DEPTH = 5;
-
-/**
- * Recursively discover directories containing a SKILL.md file.
- * Used as a fallback when the standard skills/ directory is missing or empty.
- */
-function findSkillDirs(dir: string, depth = 0): string[] {
-  if (depth > MAX_DEPTH) return [];
-
-  try {
-    const entries = readdirSync(dir, { withFileTypes: true });
-    const results: string[] = [];
-
-    // Check if this directory itself is a skill
-    if (existsSync(join(dir, "SKILL.md"))) {
-      results.push(dir);
-    }
-
-    for (const entry of entries) {
-      if (entry.isDirectory() && !SKIP_DIRS.has(entry.name)) {
-        results.push(...findSkillDirs(join(dir, entry.name), depth + 1));
-      }
-    }
-
-    return results;
-  } catch (err) {
-    log.warn(`Could not read directory ${dir}: ${(err as Error).message}`);
-    return [];
-  }
 }
 
 export async function search(
