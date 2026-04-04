@@ -120,6 +120,61 @@ describe("sync command", () => {
     expect(lockfile.skills["my-skill"].commitSha).toBe("new-sha-1234567");
   });
 
+  // Bug 1: sync must use entry.remotePath, not findSkillsRoot + entry.name
+  it("uses remotePath to locate skill in remote clone (not hardcoded skills/ subdir)", async () => {
+    const skillDir = join(tmp, ".agents", "skills", "my-skill");
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(join(skillDir, "SKILL.md"), "old content");
+
+    const hash = hashDirectory(skillDir);
+    writeLockfile(tmp, {
+      version: 1,
+      skills: {
+        "my-skill": makeEntry({
+          remotePath: "web-tools/my-skill", // non-standard — not under skills/
+          installedHash: hash,
+        }),
+      },
+    });
+
+    // Place skill at the non-standard path inside the fake clone
+    const remoteDir = join(tmp, "_remote_custom");
+    mkdirSync(join(remoteDir, "web-tools", "my-skill"), { recursive: true });
+    writeFileSync(join(remoteDir, "web-tools", "my-skill", "SKILL.md"), "updated via remotePath");
+    vi.mocked(shallowClone).mockResolvedValue({
+      dir: remoteDir,
+      headSha: "new-sha-1234567",
+      cleanup: vi.fn(),
+    });
+
+    await sync(tmp);
+
+    expect(readFileSync(join(skillDir, "SKILL.md"), "utf-8")).toBe("updated via remotePath");
+  });
+
+  // Bug 2: sync <nonexistent-skill> should exit 1, not silently no-op
+  it("exits with code 1 when named skill is not in the lockfile", async () => {
+    writeLockfile(tmp, {
+      version: 1,
+      skills: {
+        "other-skill": makeEntry({ name: "other-skill", remotePath: "skills/other-skill" }),
+      },
+    });
+
+    const mockExit = vi
+      .spyOn(process, "exit")
+      .mockImplementation((_code?: number): never => {
+        throw new Error("process.exit called");
+      });
+
+    try {
+      await expect(sync(tmp, "does-not-exist")).rejects.toThrow("process.exit called");
+      expect(mockExit).toHaveBeenCalledWith(1);
+    } finally {
+      mockExit.mockRestore();
+    }
+  });
+
   it("refuses to overwrite local modifications without --force", async () => {
     const skillDir = join(tmp, ".agents", "skills", "my-skill");
     mkdirSync(skillDir, { recursive: true });
@@ -397,6 +452,34 @@ describe("sync (local path entries)", () => {
     });
 
     await expect(sync(tmp)).resolves.not.toThrow();
+    expect(shallowClone).not.toHaveBeenCalled();
+  });
+
+  // Bug 1: local path sync must use entry.remotePath, not findSkillsRoot + entry.name
+  it("uses remotePath to locate skill in local repo (not hardcoded skills/ subdir)", async () => {
+    const customRepo = join(tmp, "_custom_local");
+    mkdirSync(join(customRepo, "tool-skills", "my-skill"), { recursive: true });
+    writeFileSync(join(customRepo, "tool-skills", "my-skill", "SKILL.md"), "local updated via remotePath");
+
+    const dest = join(tmp, ".agents", "skills", "my-skill");
+    mkdirSync(dest, { recursive: true });
+    writeFileSync(join(dest, "SKILL.md"), "old");
+    const hash = hashDirectory(dest);
+
+    writeLockfile(tmp, {
+      version: 1,
+      skills: {
+        "my-skill": makeEntry({
+          repo: `file:${customRepo}`,
+          remotePath: "tool-skills/my-skill", // non-standard — not under skills/
+          installedHash: hash,
+        }),
+      },
+    });
+
+    await sync(tmp);
+
+    expect(readFileSync(join(dest, "SKILL.md"), "utf-8")).toBe("local updated via remotePath");
     expect(shallowClone).not.toHaveBeenCalled();
   });
 

@@ -27,26 +27,28 @@ function createRelativeSymlink(target: string, linkPath: string): boolean {
   const linkDir = dirname(linkPath);
   const rel = relative(linkDir, target);
 
-  if (existsSync(linkPath)) {
-    try {
-      const stat = lstatSync(linkPath);
-      if (stat.isSymbolicLink()) {
+  let stat: ReturnType<typeof lstatSync> | null = null;
+  try {
+    stat = lstatSync(linkPath);
+  } catch (err: unknown) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== "ENOENT") throw err;
+  }
+
+  if (stat !== null) {
+    if (stat.isSymbolicLink()) {
+      try {
         const existing = readlinkSync(linkPath);
         if (existing === rel) return true; // already correct
-        unlinkSync(linkPath); // wrong target, replace
-      } else {
-        // It's a real directory/file — don't clobber it
-        log.warn(`Skipping ${linkPath} — exists and is not a symlink`);
-        return false;
+      } catch (err: unknown) {
+        const code = (err as NodeJS.ErrnoException).code;
+        if (code !== "ENOENT" && code !== "ELOOP") throw err;
       }
-    } catch (err: unknown) {
-      const code = (err as NodeJS.ErrnoException).code;
-      if (code === "ELOOP") {
-        // Circular symlink — clean up
-        unlinkSync(linkPath);
-      } else {
-        throw err;
-      }
+      unlinkSync(linkPath); // wrong target, broken, or circular — replace
+    } else {
+      // It's a real directory/file — don't clobber it
+      log.warn(`Skipping ${linkPath} — exists and is not a symlink`);
+      return false;
     }
   }
 

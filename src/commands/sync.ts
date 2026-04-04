@@ -1,7 +1,7 @@
 import { existsSync, cpSync } from "node:fs";
 import { join } from "node:path";
 import { readLockfile, setSkillEntry, acquireLock, type SkillEntry } from "../core/manifest.js";
-import { resolveRepo, findSkillsRoot, decodeLocalRepo } from "../core/resolver.js";
+import { resolveRepo, decodeLocalRepo } from "../core/resolver.js";
 import { shallowClone } from "../core/git.js";
 import { fetchTreeSha } from "../core/github.js";
 import { hashDirectory } from "../core/hash.js";
@@ -24,6 +24,12 @@ export async function sync(
   opts: SyncOptions = {},
 ): Promise<void> {
   const lockfile = readLockfile(root);
+
+  if (skillName && !lockfile.skills[skillName]) {
+    log.error(`Skill "${skillName}" is not tracked. Run \`skilled list\` to see installed skills.`);
+    process.exit(1);
+  }
+
   const entries = skillName
     ? [lockfile.skills[skillName]].filter(Boolean)
     : Object.values(lockfile.skills);
@@ -60,8 +66,6 @@ export async function sync(
           continue;
         }
 
-        const remoteSkills = findSkillsRoot(localRepoPath);
-
         for (const entry of repoEntries) {
           const safeName = sanitizeName(entry.name);
           const localSkills = skillsDir(root);
@@ -71,7 +75,7 @@ export async function sync(
           }
 
           const localDir = join(localSkills, safeName);
-          const remoteDir = join(remoteSkills, entry.name);
+          const remoteDir = join(localRepoPath, entry.remotePath);
 
           if (!existsSync(remoteDir)) {
             log.warn(`Skill "${entry.name}" no longer exists in ${localRepoPath}`);
@@ -115,8 +119,6 @@ export async function sync(
       const clone = await shallowClone(resolved.cloneUrl);
 
       try {
-        const remoteSkills = findSkillsRoot(clone.dir);
-
         for (const entry of repoEntries) {
           const safeName = sanitizeName(entry.name);
           const localSkills = skillsDir(root);
@@ -126,7 +128,7 @@ export async function sync(
           }
 
           const localDir = join(localSkills, safeName);
-          const remoteDir = join(remoteSkills, entry.name);
+          const remoteDir = join(clone.dir, entry.remotePath);
 
           if (!existsSync(remoteDir)) {
             log.warn(`Skill "${entry.name}" no longer exists in ${repo}`);

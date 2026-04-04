@@ -218,6 +218,8 @@ Compare local skills against their remote source.
 
 Exits with code 1 if any conflicts are detected.
 
+Remote change detection uses the **GitHub Tree SHA** for the skill's directory (stored as `treeSha` in the lockfile), not the repository-level commit SHA (`commitSha`). This means only changes to that specific skill directory trigger `remoteModified: true` — unrelated commits to other parts of the repo are ignored. To simulate a stale lockfile in tests, corrupt `treeSha`, not `commitSha`.
+
 | Flag | Description |
 |------|-------------|
 | `--json` | Output as JSON |

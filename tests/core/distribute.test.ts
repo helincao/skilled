@@ -7,6 +7,7 @@ import {
   existsSync,
   lstatSync,
   readlinkSync,
+  symlinkSync,
 } from "node:fs";
 import { join, relative } from "node:path";
 import { tmpdir } from "node:os";
@@ -84,6 +85,29 @@ describe("distribute", () => {
       const linkPath = join(tmp, "custom-agent", "skills", "build");
       expect(existsSync(linkPath)).toBe(true);
       expect(lstatSync(linkPath).isSymbolicLink()).toBe(true);
+    });
+
+    // Bug 3: broken (dangling) symlinks must be replaced, not cause EEXIST
+    it("replaces a pre-existing broken (dangling) symlink", () => {
+      const linkDir = join(tmp, ".claude", "skills");
+      mkdirSync(linkDir, { recursive: true });
+      const linkPath = join(linkDir, "build");
+
+      // Create a symlink pointing to a target that does not exist
+      symlinkSync("/nonexistent/target", linkPath);
+
+      // existsSync returns false for dangling symlinks — confirm the setup
+      expect(existsSync(linkPath)).toBe(false);
+      expect(lstatSync(linkPath).isSymbolicLink()).toBe(true);
+
+      // Must not throw EEXIST — should replace the broken link
+      expect(() => distributeSkill(tmp, "build", ["claude-code"] as AgentType[])).not.toThrow();
+
+      // Link must now point to the correct canonical path
+      const stat = lstatSync(linkPath);
+      expect(stat.isSymbolicLink()).toBe(true);
+      const target = readlinkSync(linkPath);
+      expect(target).toBe(relative(linkDir, join(tmp, ".agents", "skills", "build")));
     });
 
     it("is idempotent — re-running does not fail", () => {

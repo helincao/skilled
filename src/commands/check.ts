@@ -134,15 +134,12 @@ export async function check(
     } else {
       // Fallback: clone-based check for skills without treeSha
       log.dim("(no tree SHA cached — using clone-based check)");
-      const { findSkillsRoot } = await import("../core/resolver.js");
       const clone = await shallowClone(resolved.cloneUrl);
 
       try {
-        const remoteSkills = findSkillsRoot(clone.dir);
-
         for (const entry of repoEntries) {
           const localDir = join(skillsDir(root), entry.name);
-          const remoteDir = join(remoteSkills, entry.name);
+          const remoteDir = join(clone.dir, entry.remotePath);
 
           if (!existsSync(localDir)) {
             results.push({
